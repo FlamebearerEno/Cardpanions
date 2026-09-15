@@ -1,5 +1,5 @@
 import { getCompanion } from "./companions";
-import { UNLOCK_IDS, STARTER_IDS, getCard } from "./cards";
+import { UNLOCK_IDS, STARTER_IDS, getCard, remapCardId } from "./cards";
 import { DUST_PER_DUPE, PACK_SIZE } from "./formulas";
 import { SeededRng } from "./rng";
 
@@ -19,7 +19,7 @@ export function rollPack(args: {
   companionId: string | null;
 }): PackGrant[] {
   const rng = new SeededRng(args.seed);
-  const owned = new Set(args.ownedIds);
+  const owned = new Set(args.ownedIds.map(remapCardId));
   const bias = args.companionId
     ? getCompanion(args.companionId).packBias.filter((id) =>
         UNLOCK_IDS.includes(id),

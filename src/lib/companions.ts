@@ -23,7 +23,7 @@ export const COMPANIONS: CompanionDef[] = [
     tagline: "She'll correct you in public, then wait for you to catch up.",
     traits: { accept: "Wit", reject: "Mercy" },
     accent: "#ff6b8a",
-    packBias: ["trap-clause", "contrarian-echo", "deny", "sideways-cut"],
+    packBias: ["trap_clause", "contrarian_echo", "deny", "sideways_cut"],
     lines: [
       "Cute try. Say it cleaner.",
       "I heard the real point under that. Don't bury it.",
@@ -45,7 +45,7 @@ export const COMPANIONS: CompanionDef[] = [
     tagline: "Warmth with a scoreboard. She wants you across the line, not under it.",
     traits: { accept: "Warmth", reject: "Cruelty" },
     accent: "#f0a05a",
-    packBias: ["steady-breath", "bitter-balm", "warm-up", "read-ahead"],
+    packBias: ["steady_breath", "bitter_balm", "warm_up", "read_ahead"],
     lines: [
       "Hey — I felt that. Again, from the chest.",
       "You're allowed to want the win. Sit with it.",
@@ -67,7 +67,7 @@ export const COMPANIONS: CompanionDef[] = [
     tagline: "Won't let you tap out. Respects the ones who stay in the room.",
     traits: { accept: "Grit", reject: "Quit" },
     accent: "#6ee7c5",
-    packBias: ["comeback-line", "finisher-bite", "overreach", "swagger-hook"],
+    packBias: ["comeback_line", "finisher_bite", "overreach_riff", "swagger_hook"],
     lines: [
       "Still standing. Good. Again.",
       "The floor doesn't care how you feel. That's why we train.",

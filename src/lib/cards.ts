@@ -21,6 +21,37 @@ export type CardDef = {
   flavor?: string;
 };
 
+/** kebab-case leftovers from the first slice → snake_case bible. */
+export const CARD_ID_REMAP: Record<string, string> = {
+  "opening-jab": "opening_jab",
+  "guarded-point": "guarded_point",
+  "straight-claim": "straight_claim",
+  "trap-clause": "trap_clause",
+  "loud-correct": "loud_correct",
+  "comeback-line": "comeback_line",
+  "swagger-hook": "swagger_hook",
+  "exact-count": "exact_count",
+  "warm-up": "warm_up",
+  "steady-breath": "steady_breath",
+  "read-ahead": "read_ahead",
+  amp: "amp_next",
+  "sideways-cut": "sideways_cut",
+  "finisher-bite": "finisher_bite",
+  "bitter-balm": "bitter_balm",
+  "contrarian-echo": "contrarian_echo",
+  "second-thought": "second_thought",
+  "raise-stakes": "raise_stakes",
+  overreach: "overreach_riff",
+  "door-jab": "door_jab",
+  "latch-guard": "latch_guard",
+  "keep-out": "keep_out",
+  "floor-hook": "floor_hook",
+};
+
+export function remapCardId(id: string): string {
+  return CARD_ID_REMAP[id] ?? id;
+}
+
 export const SETS = [
   {
     id: "takes-core",
@@ -30,19 +61,22 @@ export const SETS = [
   {
     id: "riffs-core",
     name: "Breathwork",
-    bonus: "+4 Shared Pulse cap",
+    bonus: "Riffs cost 1 less (min 0)",
   },
   {
     id: "unlock-edge",
     name: "Edge Cases",
-    bonus: "+3 Shared Pulse cap",
+    bonus: "+1 Power on Hold (Second)",
   },
 ] as const;
 
+/**
+ * Locked v1 kit. The original brief named roles/keywords, not integers;
+ * these energy/power values are the bible going forward.
+ */
 export const CARDS: CardDef[] = [
-  // --- Starter Takes (8) ---
   {
-    id: "opening-jab",
+    id: "opening_jab",
     name: "Opening Jab",
     type: "take",
     energy: 1,
@@ -50,10 +84,10 @@ export const CARDS: CardDef[] = [
     keywords: ["lead"],
     setId: "takes-core",
     unlock: "starter",
-    text: "Lead: +2 Power.",
+    text: "Declare (First): +2 Power.",
   },
   {
-    id: "guarded-point",
+    id: "guarded_point",
     name: "Guarded Point",
     type: "take",
     energy: 1,
@@ -64,7 +98,7 @@ export const CARDS: CardDef[] = [
     text: "Defend: if you lose the cut, take half (rounded up).",
   },
   {
-    id: "straight-claim",
+    id: "straight_claim",
     name: "Straight Claim",
     type: "take",
     energy: 2,
@@ -75,7 +109,7 @@ export const CARDS: CardDef[] = [
     text: "Clean Power. No tricks.",
   },
   {
-    id: "trap-clause",
+    id: "trap_clause",
     name: "Trap Clause",
     type: "take",
     energy: 2,
@@ -83,10 +117,10 @@ export const CARDS: CardDef[] = [
     keywords: ["cancel"],
     setId: "takes-core",
     unlock: "starter",
-    text: "Cancel: strip the floor's keywords this clash.",
+    text: "Cancel: First strips Second-first; otherwise Second-first Cancel strips First.",
   },
   {
-    id: "loud-correct",
+    id: "loud_correct",
     name: "Loud Correct",
     type: "take",
     energy: 1,
@@ -94,10 +128,10 @@ export const CARDS: CardDef[] = [
     keywords: ["react"],
     setId: "takes-core",
     unlock: "starter",
-    text: "React (Hold): +4 Power.",
+    text: "Hold (Second-first): +4 Power, unless First Cancelled.",
   },
   {
-    id: "comeback-line",
+    id: "comeback_line",
     name: "Comeback Line",
     type: "take",
     energy: 2,
@@ -108,7 +142,7 @@ export const CARDS: CardDef[] = [
     text: "+4 Power if Shared Pulse is below Floor Pulse.",
   },
   {
-    id: "swagger-hook",
+    id: "swagger_hook",
     name: "Swagger Hook",
     type: "take",
     energy: 2,
@@ -119,7 +153,7 @@ export const CARDS: CardDef[] = [
     text: "Swagger: if you win, extra 10 cut.",
   },
   {
-    id: "exact-count",
+    id: "exact_count",
     name: "Exact Count",
     type: "take",
     energy: 2,
@@ -129,9 +163,8 @@ export const CARDS: CardDef[] = [
     unlock: "starter",
     text: "Ignores Chaos. The number is the number.",
   },
-  // --- Starter Riffs (5) ---
   {
-    id: "warm-up",
+    id: "warm_up",
     name: "Warm-Up",
     type: "riff",
     energy: 1,
@@ -142,7 +175,7 @@ export const CARDS: CardDef[] = [
     text: "Draw 1 (hand cap 7).",
   },
   {
-    id: "steady-breath",
+    id: "steady_breath",
     name: "Steady Breath",
     type: "riff",
     energy: 1,
@@ -153,7 +186,7 @@ export const CARDS: CardDef[] = [
     text: "Restore 10 Shared Pulse.",
   },
   {
-    id: "read-ahead",
+    id: "read_ahead",
     name: "Read Ahead",
     type: "riff",
     energy: 1,
@@ -164,7 +197,7 @@ export const CARDS: CardDef[] = [
     text: "+3 Power on your next clash.",
   },
   {
-    id: "amp",
+    id: "amp_next",
     name: "Amp",
     type: "riff",
     energy: 2,
@@ -183,11 +216,10 @@ export const CARDS: CardDef[] = [
     keywords: ["cancel"],
     setId: "riffs-core",
     unlock: "starter",
-    text: "Cancel floor keywords on your next clash.",
+    text: "Cancel floor keywords on your next clash (counts as your Cancel).",
   },
-  // --- Unlocks: Takes ---
   {
-    id: "sideways-cut",
+    id: "sideways_cut",
     name: "Sideways Cut",
     type: "take",
     energy: 1,
@@ -198,7 +230,7 @@ export const CARDS: CardDef[] = [
     text: "Chaos: both Powers jitter ±3. Exact Count ignores it.",
   },
   {
-    id: "finisher-bite",
+    id: "finisher_bite",
     name: "Finisher Bite",
     type: "take",
     energy: 3,
@@ -209,7 +241,7 @@ export const CARDS: CardDef[] = [
     text: "All-in closer. Costs the whole bar.",
   },
   {
-    id: "bitter-balm",
+    id: "bitter_balm",
     name: "Bitter Balm",
     type: "take",
     energy: 1,
@@ -220,7 +252,7 @@ export const CARDS: CardDef[] = [
     text: "Defend. After the clash, restore 8 Shared Pulse.",
   },
   {
-    id: "contrarian-echo",
+    id: "contrarian_echo",
     name: "Contrarian Echo",
     type: "take",
     energy: 2,
@@ -228,11 +260,10 @@ export const CARDS: CardDef[] = [
     keywords: ["react"],
     setId: "unlock-edge",
     unlock: "pack",
-    text: "React: match their Power, then +1.",
+    text: "Hold (Second-first): match their Power, then +1.",
   },
-  // --- Unlocks: Riffs ---
   {
-    id: "second-thought",
+    id: "second_thought",
     name: "Second Thought",
     type: "riff",
     energy: 1,
@@ -243,7 +274,7 @@ export const CARDS: CardDef[] = [
     text: "Pull the top of the Shelf back into hand.",
   },
   {
-    id: "raise-stakes",
+    id: "raise_stakes",
     name: "Raise Stakes",
     type: "riff",
     energy: 2,
@@ -254,7 +285,7 @@ export const CARDS: CardDef[] = [
     text: "Next clash cut uses PowerDiff × 7 instead of × 5.",
   },
   {
-    id: "overreach",
+    id: "overreach_riff",
     name: "Overreach",
     type: "riff",
     energy: 1,
@@ -287,7 +318,7 @@ export const UNLOCK_IDS = CARDS.filter((c) => c.unlock === "pack").map(
 );
 
 export function getCard(id: string): CardDef {
-  const c = CARD_BY_ID[id];
+  const c = CARD_BY_ID[remapCardId(id)];
   if (!c) throw new Error(`Unknown card: ${id}`);
   return c;
 }
@@ -299,7 +330,7 @@ export function cardsInSet(setId: string): CardDef[] {
 /** Floor-only takes — not collectible. */
 export const FLOOR_CARDS: CardDef[] = [
   {
-    id: "door-jab",
+    id: "door_jab",
     name: "Door Jab",
     type: "take",
     energy: 0,
@@ -307,10 +338,10 @@ export const FLOOR_CARDS: CardDef[] = [
     keywords: ["lead"],
     setId: "floor",
     unlock: "starter",
-    text: "The door talks first.",
+    text: "First: +2 Power if the floor is First (player Held).",
   },
   {
-    id: "latch-guard",
+    id: "latch_guard",
     name: "Latch Guard",
     type: "take",
     energy: 0,
@@ -321,7 +352,7 @@ export const FLOOR_CARDS: CardDef[] = [
     text: "Defend: floor takes half cut if it loses.",
   },
   {
-    id: "keep-out",
+    id: "keep_out",
     name: "Keep Out",
     type: "take",
     energy: 0,
@@ -332,7 +363,7 @@ export const FLOOR_CARDS: CardDef[] = [
     text: "A heavy claim.",
   },
   {
-    id: "floor-hook",
+    id: "floor_hook",
     name: "Threshold Hook",
     type: "take",
     energy: 0,
@@ -349,5 +380,6 @@ export const FLOOR_BY_ID: Record<string, CardDef> = Object.fromEntries(
 );
 
 export function getAnyCard(id: string): CardDef {
-  return FLOOR_BY_ID[id] ?? getCard(id);
+  const key = remapCardId(id);
+  return FLOOR_BY_ID[key] ?? getCard(key);
 }

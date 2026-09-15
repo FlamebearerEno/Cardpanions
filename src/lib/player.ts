@@ -1,4 +1,4 @@
-import { CARDS, SETS, STARTER_IDS, cardsInSet } from "./cards";
+import { CARDS, SETS, STARTER_IDS, cardsInSet, remapCardId } from "./cards";
 import { getCompanion } from "./companions";
 import { setBonuses } from "./clash";
 import {
@@ -12,13 +12,12 @@ import type { PlayerRecord } from "./session";
 export type MeDto = ReturnType<typeof toMeDto>;
 
 export function toMeDto(player: PlayerRecord) {
-  const ownedIds = player.cards.map((c) => c.cardId);
+  const ownedIds = player.cards.map((c) => remapCardId(c.cardId));
   const bonuses = setBonuses(ownedIds);
   const pulse = sharedPulseMax(
     player.playerLevel,
     player.companionLevel,
     player.bond,
-    bonuses.pulse,
   );
   const companion = player.companionId
     ? getCompanion(player.companionId)
@@ -54,7 +53,9 @@ export function toMeDto(player: PlayerRecord) {
     playerSegment: pulse.playerSegment,
     companionSegment: pulse.companionSegment,
     cards: CARDS.map((def) => {
-      const owned = player.cards.find((c) => c.cardId === def.id);
+      const owned = player.cards.find(
+        (c) => remapCardId(c.cardId) === def.id,
+      );
       return {
         ...def,
         owned: Boolean(owned),

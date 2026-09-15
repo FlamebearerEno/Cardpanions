@@ -34,6 +34,8 @@ type ClashView = {
     cut: number;
     multiplier: number;
     playerLeads: boolean;
+    fog?: boolean;
+    secondFirst?: boolean;
     sharedDelta: number;
     floorDelta: number;
     note: string;
@@ -580,7 +582,7 @@ function ClashTab({
             {clash.lastClash.floorCardName} {clash.lastClash.floorPower}
           </strong>
           <p>
-            {clash.lastClash.playerLeads ? "Lead" : "React"} · cut{" "}
+            {clash.lastClash.playerLeads ? "Declare face-up" : "Hold face-down"} · cut{" "}
             {clash.lastClash.cut} (×{clash.lastClash.multiplier}) · you{" "}
             {clash.lastClash.sharedDelta} / floor {clash.lastClash.floorDelta}
           </p>
@@ -588,8 +590,8 @@ function ClashTab({
         </div>
       ) : (
         <p className="hint">
-          Pick a Take, then Lead (Declare) or React (Hold). End turn unlocks after
-          the clash. Leftover energy can Riff.
+          Pick a Take, then Declare (face-up, First) or Hold (face-down, Second).
+          End turn unlocks after the clash. Leftover energy can Riff.
         </p>
       )}
       <div className="hand">
@@ -616,14 +618,14 @@ function ClashTab({
           disabled={busy || !canClash || (selectedCard?.energy ?? 99) > clash.energy}
           onClick={() => onAct({ type: "declare", iid: selectedCard!.iid })}
         >
-          Lead
+          Declare
         </button>
         <button
           type="button"
           disabled={busy || !canClash || (selectedCard?.energy ?? 99) > clash.energy}
           onClick={() => onAct({ type: "hold", iid: selectedCard!.iid })}
         >
-          React
+          Hold
         </button>
         <button
           type="button"

@@ -3,10 +3,12 @@ import {
   applyAction,
   clashView,
   createClashState,
+  remapClashState,
   type ClashAction,
   type ClashContext,
   type ClashState,
 } from "@/lib/clash";
+import { remapCardId } from "@/lib/cards";
 import { prisma } from "@/lib/db";
 import { addFragments, toMeDto } from "@/lib/player";
 import { hashSeed } from "@/lib/rng";
@@ -26,7 +28,7 @@ function ctxFrom(player: PlayerRecord): ClashContext {
     playerLevel: player.playerLevel,
     companionLevel: player.companionLevel,
     bond: player.bond,
-    owned: player.cards.map((c) => ({ cardId: c.cardId, rank: c.rank })),
+    owned: player.cards.map((c) => ({ cardId: remapCardId(c.cardId), rank: c.rank })),
   };
 }
 
@@ -44,7 +46,7 @@ export async function GET() {
   }
   const run = await activeClash(player.id);
   if (!run) return NextResponse.json({ clash: null, me: toMeDto(player) });
-  const state = run.state as unknown as ClashState;
+  const state = remapClashState(run.state as unknown as ClashState);
   return NextResponse.json({
     clash: clashView(state, ctxFrom(player)),
     me: toMeDto(player),
@@ -95,7 +97,7 @@ export async function PATCH(request: Request) {
     return NextResponse.json({ error: "No active clash." }, { status: 400 });
   }
 
-  const current = run.state as unknown as ClashState;
+  const current = remapClashState(run.state as unknown as ClashState);
   let next: ClashState;
   try {
     next = applyAction(current, ctxFrom(player), body);

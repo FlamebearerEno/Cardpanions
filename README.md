@@ -44,17 +44,41 @@ Collection combat is **set synergies only** (complete Opening Arguments / Breath
 ### Clash locks (v1)
 
 - Cut = **PowerDiff × 5** (Raise Stakes riff uses × 7). Hits the lower-Power owner.
-- **Lead (Declare)** or **React (Hold)** with one Take. Riffs always open.
+- **Declare** = Lead, face-up, you are **First**. Floor sees printed Power and may switch Take.
+- **Hold** = React, face-down, you are **Second**. Floor commits **blind** (fog — not an open Power compare). Then reveal.
+- **Second-first** triggers (React, Contrarian Echo, Second Cancel) fire on Hold unless First Cancelled them.
 - **Defend** = half cut (ceil). Named keywords: Swagger, Cancel, Chaos, Overreach.
 - Dual-segment Shared Pulse bar: player mint + companion rose.
 
+**Floor Pulse** (The Door, band 1): snapshotted at clash start as
+
+`round(SharedPulseMax × band × 0.78)`
+
+Bond aura can change Shared PulseMax later; Floor Pulse does not retarget mid-fight.
+
+**Sets never grant Shared Pulse / MaxHP.** Complete-set combat is Power/control only:
+
+- Opening Arguments: +1 clash Power
+- Breathwork: Riffs cost 1 less (min 0)
+- Edge Cases: +1 Power on Hold
+
+### Card ids (snake_case bible)
+
+Takes: `opening_jab, guarded_point, straight_claim, trap_clause, loud_correct, comeback_line, swagger_hook, exact_count, sideways_cut, finisher_bite, bitter_balm, contrarian_echo`
+
+Riffs: `warm_up, steady_breath, read_ahead, amp_next, deny, second_thought, raise_stakes, overreach_riff`
+
+(`amp` → `amp_next`, `overreach` → `overreach_riff`. Old kebab-case rows remap on load; **Reset local profile** if an in-flight clash looks stale.)
+
 ### Starter kit (20 cards)
 
-Takes: Opening Jab, Guarded Point, Straight Claim, Trap Clause, Loud Correct, Comeback Line, Swagger Hook, Exact Count.
+Takes: Opening Jab (1e/8/lead), Guarded Point (1e/6/defend), Straight Claim (2e/12), Trap Clause (2e/7/cancel), Loud Correct (1e/8/react), Comeback Line (2e/9), Swagger Hook (2e/10/swagger), Exact Count (2e/11).
 
-Riffs: Warm-Up, Steady Breath, Read Ahead, Amp, Deny.
+Riffs: Warm-Up, Steady Breath, Read Ahead, Amp (`amp_next`), Deny.
 
-Unlocks: Sideways Cut, Finisher Bite, Bitter Balm, Contrarian Echo, Second Thought, Raise Stakes, Overreach.
+Unlocks: Sideways Cut, Finisher Bite, Bitter Balm, Contrarian Echo, Second Thought, Raise Stakes, Overreach (`overreach_riff`).
+
+The original battler brief named roles/keywords, not integers. The energy/power table above is the locked v1 kit (intentional, not leftover greybox). Exact Count's Chaos immunity is card text, not a new keyword.
 
 ## Layout
 
@@ -67,7 +91,7 @@ src/components/    phone-first UI
 prisma/            SQLite schema
 ```
 
-Happy path for reviewers: claim → pull pack → Clash The Door (Lead a Take, End turn, repeat) → Chat stub and watch bond/fragments tick.
+Happy path for reviewers: claim → pull pack → Clash The Door (Declare a Take, End turn, repeat) → Chat stub and watch bond/fragments tick.
 
 ## Known gaps (out of scope)
 

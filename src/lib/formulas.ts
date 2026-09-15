@@ -34,7 +34,17 @@ export const WIN_FRAGMENTS = 15;
 export const WIN_BOND = 8;
 export const LOSE_FRAGMENTS = 3;
 
-export const FLOOR1_PULSE = 90;
+/** The Door is band 1. Floor Pulse = round(SharedPulseMax × band × factor), snapshotted at clash start. */
+export const FLOOR_BAND_DOOR = 1;
+export const FLOOR_PULSE_FACTOR = 0.78;
+
+export function floorPulseFromShared(
+  sharedMax: number,
+  band = FLOOR_BAND_DOOR,
+  factor = FLOOR_PULSE_FACTOR,
+): number {
+  return Math.round(sharedMax * band * factor);
+}
 
 /** Soft-diminishing bond → extra Shared Pulse cap. */
 export function bondAuraPulse(bond: number): number {
@@ -50,13 +60,12 @@ export function sharedPulseMax(
   playerLevel: number,
   companionLevel: number,
   bond: number,
-  setPulseBonus: number,
 ): { max: number; playerSegment: number; companionSegment: number } {
   const playerSegment = PULSE_PLAYER * playerLevel;
   const companionSegment = PULSE_COMPANION * companionLevel;
   const aura = bondAuraPulse(bond);
   return {
-    max: playerSegment + companionSegment + aura + setPulseBonus,
+    max: playerSegment + companionSegment + aura,
     playerSegment,
     companionSegment,
   };

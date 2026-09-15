@@ -1,4 +1,4 @@
-import { cardsInSet, getAnyCard, getCard, STARTER_IDS, SETS } from "./cards";
+import { cardsInSet, getAnyCard, getCard, remapCardId, STARTER_IDS, SETS } from "./cards";
 import { SeededRng } from "./rng";
 import {
   BOND_PER_MESSAGE,
@@ -10,7 +10,9 @@ import {
   ENERGY_MAX,
   ENRAGE_POWER_PER_TURN,
   ENRAGE_START_TURN,
-  FLOOR1_PULSE,
+  FLOOR_BAND_DOOR,
+  FLOOR_PULSE_FACTOR,
+  floorPulseFromShared,
   HAND_CAP,
   OVERREACH_LOSE_CUT,
   OVERREACH_POWER,
@@ -40,6 +42,9 @@ export type LastClash = {
   cut: number;
   multiplier: number;
   playerLeads: boolean;
+  fog: boolean;
+  secondFirst: boolean;
+  secondFirstCancelled: boolean;
   sharedDelta: number;
   floorDelta: number;
   note: string;
@@ -50,6 +55,8 @@ export type ClashState = {
   playerId: string;
   floorId: "door-1";
   floorName: string;
+  floorBand: number;
+  floorPulseFactor: number;
   turn: number;
   energy: number;
   energyMax: number;
@@ -87,36 +94,38 @@ export type ClashContext = {
 };
 
 const FLOOR_ROTATION = [
-  "door-jab",
-  "latch-guard",
-  "keep-out",
-  "door-jab",
-  "floor-hook",
+  "door_jab",
+  "latch_guard",
+  "keep_out",
+  "door_jab",
+  "floor_hook",
 ] as const;
 
 export function setBonuses(ownedIds: string[]): {
   power: number;
-  pulse: number;
+  riffDiscount: number;
+  holdPower: number;
   complete: Record<string, boolean>;
 } {
-  const owned = new Set(ownedIds);
+  const owned = new Set(ownedIds.map(remapCardId));
   const complete: Record<string, boolean> = {};
   let power = 0;
-  let pulse = 0;
+  let riffDiscount = 0;
+  let holdPower = 0;
   for (const set of SETS) {
     const cards = cardsInSet(set.id);
     const done = cards.every((c) => owned.has(c.id));
     complete[set.id] = done;
     if (!done) continue;
     if (set.id === "takes-core") power += 1;
-    if (set.id === "riffs-core") pulse += 4;
-    if (set.id === "unlock-edge") pulse += 3;
+    if (set.id === "riffs-core") riffDiscount += 1;
+    if (set.id === "unlock-edge") holdPower += 1;
   }
-  return { power, pulse, complete };
+  return { power, riffDiscount, holdPower, complete };
 }
 
 export function buildDeck(owned: OwnedCard[], rng: SeededRng): CardInst[] {
-  const ids = new Set(owned.map((o) => o.cardId));
+  const ids = new Set(owned.map((o) => remapCardId(o.cardId)));
   for (const id of STARTER_IDS) ids.add(id);
   const insts: CardInst[] = [...ids].map((cardId, i) => ({
     iid: `d${i + 1}`,
@@ -157,12 +166,15 @@ export function createClashState(
   clashId: string,
 ): ClashState {
   const rng = new SeededRng(seed);
-  const bonuses = setBonuses(ctx.owned.map((o) => o.cardId));
   const pulse = sharedPulseMax(
     ctx.playerLevel,
     ctx.companionLevel,
     ctx.bond,
-    bonuses.pulse,
+  );
+  const floorMax = floorPulseFromShared(
+    pulse.max,
+    FLOOR_BAND_DOOR,
+    FLOOR_PULSE_FACTOR,
   );
   const deck = buildDeck(ctx.owned, rng);
   const state: ClashState = {
@@ -170,6 +182,8 @@ export function createClashState(
     playerId: ctx.playerId,
     floorId: "door-1",
     floorName: "The Door",
+    floorBand: FLOOR_BAND_DOOR,
+    floorPulseFactor: FLOOR_PULSE_FACTOR,
     turn: 1,
     energy: ENERGY_MAX,
     energyMax: ENERGY_MAX,
@@ -177,8 +191,8 @@ export function createClashState(
     sharedPulseMax: pulse.max,
     playerSegment: pulse.playerSegment,
     companionSegment: pulse.companionSegment,
-    floorPulse: FLOOR1_PULSE,
-    floorPulseMax: FLOOR1_PULSE,
+    floorPulse: floorMax,
+    floorPulseMax: floorMax,
     hand: [],
     draw: deck,
     shelf: [],
@@ -190,8 +204,8 @@ export function createClashState(
     raiseStakes: false,
     status: "active",
     log: [
-      "Floor 1 — The Door. Shared Pulse vs Floor Pulse.",
-      "1 clash/turn. Lead (Declare) or React (Hold). Leftover energy → Riffs. Shelf = discard.",
+      `Floor 1 — The Door. Shared Pulse ${pulse.max} vs Floor Pulse ${floorMax} (snapshotted ${pulse.max}×${FLOOR_BAND_DOOR}×${FLOOR_PULSE_FACTOR}).`,
+      "1 clash/turn. Declare face-up (First) or Hold face-down (Second). Leftover energy → Riffs. Shelf = discard.",
     ],
     lastClash: null,
     rngSeed: seed,
@@ -215,7 +229,10 @@ function spendFromHand(state: ClashState, iid: string): CardInst {
 }
 
 function rankOf(ctx: ClashContext, cardId: string): number {
-  return ctx.owned.find((o) => o.cardId === cardId)?.rank ?? 1;
+  const id = remapCardId(cardId);
+  return (
+    ctx.owned.find((o) => remapCardId(o.cardId) === id)?.rank ?? 1
+  );
 }
 
 function addClashPower(state: ClashState, n: number): void {
@@ -223,10 +240,24 @@ function addClashPower(state: ClashState, n: number): void {
   else state.riffBonus += n;
 }
 
-function floorTakeId(state: ClashState, rng: SeededRng): string {
-  const base = FLOOR_ROTATION[(state.turn - 1) % FLOOR_ROTATION.length]!;
-  if (rng.next() < 0.18) return rng.pick([...FLOOR_ROTATION]);
-  return base;
+/**
+ * Floor commits a Take. On Declare, printed Power is visible and the floor
+ * may switch. On Hold, Power is fogged — same rng path regardless of the
+ * held card.
+ */
+export function commitFloorTake(
+  state: ClashState,
+  rng: SeededRng,
+  revealedPrintedPower: number | null,
+): string {
+  const rotation = FLOOR_ROTATION[(state.turn - 1) % FLOOR_ROTATION.length]!;
+  const wild = rng.next() < 0.18;
+  let pick = wild ? rng.pick([...FLOOR_ROTATION]) : rotation;
+  if (revealedPrintedPower != null) {
+    if (revealedPrintedPower >= 10) pick = "latch_guard";
+    else if (revealedPrintedPower <= 7) pick = "keep_out";
+  }
+  return pick;
 }
 
 export function enragePower(turn: number): number {
@@ -242,6 +273,7 @@ export type ClashComputeInput = {
   riffBonus: number;
   nextClashBonus: number;
   setPower: number;
+  setHoldPower: number;
   bondPower: number;
   overreachArmed: boolean;
   denyArmed: boolean;
@@ -261,40 +293,81 @@ export type ClashComputeResult = {
   floorDelta: number;
   heal: number;
   note: string;
+  secondFirst: boolean;
+  secondFirstCancelled: boolean;
 };
 
 export function computeClash(input: ClashComputeInput): ClashComputeResult {
   const playerDef = input.playerCardId ? getAnyCard(input.playerCardId) : null;
   const floorDef = getAnyCard(input.floorCardId);
-  const playerLeads = input.playerLeads;
-  const playerReacts = Boolean(playerDef) && !playerLeads;
+  const playerIsFirst = input.playerLeads && Boolean(playerDef);
+  const playerIsSecond = Boolean(playerDef) && !input.playerLeads;
 
   let pPower = playerDef
     ? playerDef.power + rankPowerBonus(input.playerRank)
     : 0;
   let fPower = floorDef.power + enragePower(input.turn);
 
-  const cancelFloor =
-    input.denyArmed || (playerDef?.keywords.includes("cancel") ?? false);
-  const pKeys = playerDef?.keywords ?? [];
-  const fKeys = cancelFloor ? [] : [...floorDef.keywords];
+  let pKeys = [...(playerDef?.keywords ?? [])];
+  let fKeys = [...floorDef.keywords];
 
-  if (pKeys.includes("lead") && playerLeads) pPower += 2;
-  if (pKeys.includes("react") && playerReacts) pPower += 4;
-  if (playerDef?.id === "comeback-line" && input.sharedPulse < input.floorPulse) {
-    pPower += 4;
+  const playerHasCancel =
+    input.denyArmed || pKeys.includes("cancel");
+  const floorHasCancel = fKeys.includes("cancel");
+  const firstHasCancel = playerIsFirst ? playerHasCancel : floorHasCancel;
+  const secondHasCancel = playerIsFirst ? floorHasCancel : playerHasCancel;
+
+  let secondFirstCancelled = false;
+  const notes: string[] = [];
+
+  if (firstHasCancel) {
+    secondFirstCancelled = true;
+    if (playerIsFirst) {
+      fKeys = [];
+      notes.push("First Cancel stripped Second-first.");
+    } else {
+      pKeys = [];
+      notes.push("Floor First Cancel stripped your Second-first.");
+    }
+  } else if (secondHasCancel) {
+    if (playerIsFirst) {
+      pKeys = [];
+      notes.push("Floor Second-first Cancel stripped First.");
+    } else {
+      fKeys = [];
+      notes.push("Second-first Cancel stripped First.");
+    }
   }
-  if (playerDef?.id === "contrarian-echo" && playerReacts) {
-    pPower = Math.max(pPower, fPower) + 1;
+
+  const secondFirstLive = playerIsSecond && !secondFirstCancelled;
+
+  if (pKeys.includes("lead") && playerIsFirst) pPower += 2;
+  if (fKeys.includes("lead") && !playerIsFirst) fPower += 2;
+
+  if (secondFirstLive) {
+    if (playerDef?.id === "contrarian_echo") {
+      pPower = Math.max(pPower, fPower) + 1;
+      notes.push("Second-first: Contrarian Echo.");
+    } else if (pKeys.includes("react")) {
+      pPower += 4;
+      notes.push("Second-first: React +4.");
+    }
+  } else if (playerIsFirst && fKeys.includes("react")) {
+    fPower += 4;
+  }
+
+  if (playerDef?.id === "comeback_line" && input.sharedPulse < input.floorPulse) {
+    pPower += 4;
   }
 
   pPower +=
     input.riffBonus + input.nextClashBonus + input.setPower + input.bondPower;
+  if (playerIsSecond) pPower += input.setHoldPower;
   if (input.overreachArmed) pPower += OVERREACH_POWER;
 
   const chaos = pKeys.includes("chaos") || fKeys.includes("chaos");
   if (chaos) {
-    if (playerDef?.id !== "exact-count") {
+    if (playerDef?.id !== "exact_count") {
       pPower += input.rng.int(-3, 3);
     }
     fPower += input.rng.int(-3, 3);
@@ -305,7 +378,6 @@ export function computeClash(input: ClashComputeInput): ClashComputeResult {
 
   let sharedDelta = 0;
   let floorDelta = 0;
-  const notes: string[] = [];
 
   if (pPower < fPower) {
     let dmg = cut;
@@ -338,7 +410,7 @@ export function computeClash(input: ClashComputeInput): ClashComputeResult {
   }
 
   let heal = 0;
-  if (playerDef?.id === "bitter-balm") {
+  if (playerDef?.id === "bitter_balm") {
     heal = 8;
     notes.push("Bitter Balm restores 8.");
   }
@@ -352,6 +424,8 @@ export function computeClash(input: ClashComputeInput): ClashComputeResult {
     floorDelta,
     heal,
     note: notes.join(" "),
+    secondFirst: secondFirstLive,
+    secondFirstCancelled,
   };
 }
 
@@ -385,7 +459,11 @@ function resolveDeclaredClash(
   playerCardId: string | null,
   playerLeads: boolean,
 ): void {
-  const floorId = floorTakeId(state, rng);
+  const printed =
+    playerLeads && playerCardId
+      ? getAnyCard(playerCardId).power + rankPowerBonus(rankOf(ctx, playerCardId))
+      : null;
+  const floorId = commitFloorTake(state, rng, printed);
   const floorDef = getAnyCard(floorId);
   const bonuses = setBonuses(ctx.owned.map((o) => o.cardId));
   const result = computeClash({
@@ -396,6 +474,7 @@ function resolveDeclaredClash(
     riffBonus: state.riffBonus,
     nextClashBonus: state.nextClashBonus,
     setPower: bonuses.power,
+    setHoldPower: bonuses.holdPower,
     bondPower: bondAuraPower(ctx.bond),
     overreachArmed: state.overreachArmed,
     denyArmed: state.denyArmed,
@@ -407,14 +486,16 @@ function resolveDeclaredClash(
   });
 
   const playerName = playerCardId ? getAnyCard(playerCardId).name : "Silence";
+  const fog = Boolean(playerCardId) && !playerLeads;
   const stance = playerCardId
     ? playerLeads
-      ? "Lead (Declare)"
-      : "React (Hold)"
+      ? "Declare (face-up, First)"
+      : "Hold (face-down, Second)"
     : "no Take";
 
   applyPulse(state, result.sharedDelta, result.floorDelta, result.heal);
 
+  const fogNote = fog ? "Floor committed blind. " : "";
   state.lastClash = {
     playerCard: playerCardId,
     playerCardName: playerName,
@@ -425,9 +506,12 @@ function resolveDeclaredClash(
     cut: result.cut,
     multiplier: result.multiplier,
     playerLeads: Boolean(playerCardId) && playerLeads,
+    fog,
+    secondFirst: result.secondFirst,
+    secondFirstCancelled: result.secondFirstCancelled,
     sharedDelta: result.sharedDelta + result.heal,
     floorDelta: result.floorDelta,
-    note: result.note,
+    note: `${fogNote}${result.note}`.trim(),
   };
 
   const target =
@@ -437,7 +521,7 @@ function resolveDeclaredClash(
         ? "the floor"
         : "you";
   state.log.push(
-    `T${state.turn} ${stance}: ${playerName} ${result.playerPower} vs ${floorDef.name} ${result.floorPower} → cut ${result.cut} (×${result.multiplier}) hits ${target}. ${result.note}`.trim(),
+    `T${state.turn} ${stance}: ${playerName} ${result.playerPower} vs ${floorDef.name} ${result.floorPower} → cut ${result.cut} (×${result.multiplier}) hits ${target}. ${state.lastClash.note}`.trim(),
   );
 
   state.riffBonus = 0;
@@ -448,8 +532,13 @@ function resolveDeclaredClash(
   state.clashUsed = true;
 }
 
+function riffCost(energy: number, discount: number): number {
+  return Math.max(0, energy - discount);
+}
+
 function playRiff(
   state: ClashState,
+  ctx: ClashContext,
   rng: SeededRng,
   iid: string,
 ): void {
@@ -457,18 +546,20 @@ function playRiff(
   if (!inst) throw new Error("Card is not in hand.");
   const def = getCard(inst.cardId);
   if (def.type !== "riff") throw new Error("That card is a Take, not a Riff.");
-  if (state.energy < def.energy) throw new Error("Not enough energy.");
+  const discount = setBonuses(ctx.owned.map((o) => o.cardId)).riffDiscount;
+  const cost = riffCost(def.energy, discount);
+  if (state.energy < cost) throw new Error("Not enough energy.");
 
-  if (def.id === "second-thought" && state.shelf.length === 0) {
+  if (def.id === "second_thought" && state.shelf.length === 0) {
     throw new Error("Shelf is empty.");
   }
 
-  state.energy -= def.energy;
+  state.energy -= cost;
   spendFromHand(state, iid);
   state.shelf.push(inst);
 
   switch (def.id) {
-    case "warm-up": {
+    case "warm_up": {
       const before = state.hand.length;
       drawUpTo(state, rng, 1);
       state.log.push(
@@ -478,26 +569,26 @@ function playRiff(
       );
       break;
     }
-    case "steady-breath": {
+    case "steady_breath": {
       const heal = 10;
       const before = state.sharedPulse;
       state.sharedPulse = Math.min(state.sharedPulseMax, state.sharedPulse + heal);
       state.log.push(`Steady Breath: +${state.sharedPulse - before} Pulse.`);
       break;
     }
-    case "read-ahead":
+    case "read_ahead":
       addClashPower(state, 3);
       state.log.push("Read Ahead: +3 next clash Power.");
       break;
-    case "amp":
+    case "amp_next":
       addClashPower(state, 5);
       state.log.push("Amp: +5 next clash Power.");
       break;
     case "deny":
       state.denyArmed = true;
-      state.log.push("Deny: floor keywords Cancelled next clash.");
+      state.log.push("Deny: your Cancel is armed for the next clash.");
       break;
-    case "second-thought": {
+    case "second_thought": {
       const idx = state.shelf.length - 2;
       const back = idx >= 0 ? state.shelf[idx] : undefined;
       if (!back) {
@@ -513,11 +604,11 @@ function playRiff(
       state.log.push(`Second Thought: ${getAnyCard(card!.cardId).name} returns.`);
       break;
     }
-    case "raise-stakes":
+    case "raise_stakes":
       state.raiseStakes = true;
       state.log.push("Raise Stakes: next cut is PowerDiff × 7.");
       break;
-    case "overreach":
+    case "overreach_riff":
       state.overreachArmed = true;
       state.log.push("Overreach armed: +6 Power, +15 cut if you lose.");
       break;
@@ -554,7 +645,7 @@ function endTurn(state: ClashState, rng: SeededRng): void {
       return def.type === "take" && def.energy <= state.energy;
     });
     if (affordableTake) {
-      throw new Error("Lead or React a Take before ending the turn.");
+      throw new Error("Declare or Hold a Take before ending the turn.");
     }
     state.sharedPulse = Math.max(0, state.sharedPulse - SILENCE_PRESS);
     state.log.push(
@@ -593,7 +684,7 @@ export function applyAction(
   const rng = SeededRng.restore(next.rngSeed, next.rngCount);
   switch (action.type) {
     case "riff":
-      playRiff(next, rng, action.iid);
+      playRiff(next, ctx, rng, action.iid);
       break;
     case "declare":
       playTake(next, ctx, rng, action.iid, true);
@@ -620,16 +711,38 @@ export function applyAction(
   return next;
 }
 
+export function remapClashState(state: ClashState): ClashState {
+  const inst = (c: CardInst) => ({ ...c, cardId: remapCardId(c.cardId) });
+  return {
+    ...state,
+    hand: state.hand.map(inst),
+    draw: state.draw.map(inst),
+    shelf: state.shelf.map(inst),
+    lastClash: state.lastClash
+      ? {
+          ...state.lastClash,
+          playerCard: state.lastClash.playerCard
+            ? remapCardId(state.lastClash.playerCard)
+            : null,
+          floorCard: remapCardId(state.lastClash.floorCard),
+        }
+      : null,
+  };
+}
+
 export function clashView(state: ClashState, ctx: ClashContext) {
-  const ranks = Object.fromEntries(ctx.owned.map((o) => [o.cardId, o.rank]));
+  const ranks = Object.fromEntries(
+    ctx.owned.map((o) => [remapCardId(o.cardId), o.rank]),
+  );
   const resolve = (c: CardInst) => {
     const def = getCard(c.cardId);
     return {
       ...c,
+      cardId: remapCardId(c.cardId),
       name: def.name,
       type: def.type,
       energy: def.energy,
-      power: def.power + rankPowerBonus(ranks[c.cardId] ?? 1),
+      power: def.power + rankPowerBonus(ranks[remapCardId(c.cardId)] ?? 1),
       keywords: def.keywords,
       text: def.text,
     };
