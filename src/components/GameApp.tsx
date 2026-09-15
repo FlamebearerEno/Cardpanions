@@ -56,10 +56,12 @@ async function api<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 function firstPlayable(clash: ClashView): string | null {
-  const take = clash.hand.find(
-    (c) => c.type === "take" && c.energy <= clash.energy && !clash.clashUsed,
-  );
-  if (take) return take.iid;
+  if (!clash.clashUsed) {
+    const takes = clash.hand
+      .filter((c) => c.type === "take" && c.energy <= clash.energy)
+      .sort((a, b) => b.power - a.power);
+    if (takes[0]) return takes[0].iid;
+  }
   const riff = clash.hand.find((c) => c.type === "riff" && c.energy <= clash.energy);
   return riff?.iid ?? clash.hand[0]?.iid ?? null;
 }
