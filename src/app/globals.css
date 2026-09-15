@@ -86,12 +86,91 @@ h4 {
   font-size: 14px;
 }
 
+.art-frame {
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  border-radius: 10px;
+  background: #0b0806;
+  margin: 0 0 8px;
+}
+
+.art-frame img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.art-frame.portrait {
+  aspect-ratio: 16 / 9;
+}
+
+.art-frame.tiny {
+  width: 44px;
+  height: 44px;
+  aspect-ratio: 1;
+  margin: 0;
+  border-radius: 10px;
+  flex-shrink: 0;
+}
+
+.claim-card {
+  padding: 10px 14px 14px;
+}
+
 .topbar {
   display: flex;
   justify-content: space-between;
   align-items: flex-end;
   gap: 12px;
   margin-bottom: 12px;
+}
+
+.topbar-id {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.chrome-icon {
+  width: 18px;
+  height: 18px;
+  object-fit: cover;
+  border-radius: 4px;
+  vertical-align: middle;
+  margin-right: 6px;
+}
+
+.clash-stage {
+  position: relative;
+  border-radius: 16px;
+  overflow: hidden;
+  padding: 10px;
+  background: #120e0b;
+}
+
+.clash-stage::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: url("/art/floors/floor_01_the_door.png") center / cover no-repeat;
+  opacity: 0.35;
+  pointer-events: none;
+}
+
+.clash-stage > * {
+  position: relative;
+}
+
+.pulse-track.chrome {
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+
+.cta-row button.chrome-btn {
+  display: inline-flex;
+  align-items: center;
 }
 
 .topbar h1 {

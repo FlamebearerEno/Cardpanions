@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { cardArtSrc, companionArtSrc, FLOOR_ART, UI_ART } from "./art";
 import {
   CARDS,
   remapCardId,
@@ -730,5 +731,24 @@ describe("AFK idle claim (not companion pick)", () => {
     const capped = afkIdleFragments(long, now, 1);
     expect(capped.capped).toBe(true);
     expect(capped.fragments).toBe(Math.floor(AFK_CAP_MS / AFK_TICK_MS));
+  });
+});
+
+describe("art paths", () => {
+  it("maps snake_case card ids to public/art/cards", () => {
+    expect(cardArtSrc("take", "opening_jab")).toBe(
+      "/art/cards/take_opening_jab.png",
+    );
+    expect(cardArtSrc("riff", "amp_next")).toBe("/art/cards/riff_amp_next.png");
+    expect(cardArtSrc("riff", "amp")).toBe("/art/cards/riff_amp_next.png");
+    expect(companionArtSrc("vex")).toBe(
+      "/art/companions/companion_rival_01.png",
+    );
+    expect(companionArtSrc("ember")).toBe(
+      "/art/companions/companion_rival_02.png",
+    );
+    expect(FLOOR_ART).toBe("/art/floors/floor_01_the_door.png");
+    expect(UI_ART.declare).toBe("/art/ui/ui_declare.png");
+    expect(UI_ART.hold).toBe("/art/ui/ui_hold.png");
   });
 });

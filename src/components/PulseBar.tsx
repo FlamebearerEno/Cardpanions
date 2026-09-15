@@ -1,5 +1,7 @@
 "use client";
 
+import { UI_ART } from "@/lib/art";
+
 type PulseBarProps = {
   label: string;
   current: number;
@@ -23,6 +25,7 @@ export function PulseBar({
   const dual = playerShare != null && companionShare != null;
   const totalSeg = (playerShare ?? 0) + (companionShare ?? 0);
   const playerPct = totalSeg > 0 ? (playerShare! / totalSeg) * 100 : 70;
+  const chrome = invert ? UI_ART.floorPulse : UI_ART.sharedPulse;
 
   return (
     <div className="pulse-block">
@@ -32,7 +35,10 @@ export function PulseBar({
           {current}/{max}
         </strong>
       </div>
-      <div className={`pulse-track ${invert ? "invert" : ""}`}>
+      <div
+        className={`pulse-track chrome ${invert ? "invert" : ""}`}
+        style={{ backgroundImage: `url(${chrome})` }}
+      >
         {dual ? (
           <div className="pulse-dual" style={{ width: `${pct}%` }}>
             <i style={{ width: `${playerPct}%` }} />

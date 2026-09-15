@@ -1,5 +1,7 @@
 "use client";
 
+import { cardArtSrc } from "@/lib/art";
+
 export type HandCard = {
   iid: string;
   cardId: string;
@@ -14,6 +16,30 @@ export type HandCard = {
   swagger?: number;
   defend?: number;
 };
+
+export function ArtFrame({
+  src,
+  alt,
+  className,
+}: {
+  src: string;
+  alt: string;
+  className?: string;
+}) {
+  return (
+    <div className={`art-frame ${className ?? ""}`}>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={src}
+        alt={alt}
+        onError={(e) => {
+          const frame = e.currentTarget.parentElement;
+          if (frame) frame.style.display = "none";
+        }}
+      />
+    </div>
+  );
+}
 
 export function CardTile({
   card,
@@ -30,6 +56,7 @@ export function CardTile({
       className={`card-tile ${card.type} ${selected ? "selected" : ""}`}
       onClick={onSelect}
     >
+      <ArtFrame src={cardArtSrc(card.type, card.cardId)} alt={card.name} />
       <header>
         <span className="kind">{card.type}</span>
         <span className="cost">{card.energy}e</span>
@@ -50,6 +77,7 @@ export function CardTile({
 }
 
 export function CatalogCard({
+  id,
   name,
   type,
   energy,
@@ -62,6 +90,7 @@ export function CatalogCard({
   chaosMin,
   chaosMax,
 }: {
+  id: string;
   name: string;
   type: string;
   energy: number;
@@ -76,6 +105,7 @@ export function CatalogCard({
 }) {
   return (
     <article className={`catalog-card ${owned ? "owned" : "locked"}`}>
+      <ArtFrame src={cardArtSrc(type, id)} alt={name} />
       <header>
         <span>{type}</span>
         <span>

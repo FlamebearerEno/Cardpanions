@@ -140,6 +140,17 @@ prisma/            SQLite schema
 
 Happy path for reviewers: choose rival → pull pack → Clash The Door (Declare or Hold a Take, End turn, repeat) → Claim idle (AFK stub) → Chat stub and watch bond/fragments tick.
 
+## Art (Creative Grok Imagine)
+
+Greybox UI reads from `public/art/`:
+
+- Companions: `/art/companions/companion_rival_01.png` (Vex / Grit), `_02.png` (Ember)
+- Cards: `/art/cards/take_<id>.png` and `/art/cards/riff_<id>.png` (`amp_next` prefers `riff_amp_next.png`)
+- Floor: `/art/floors/floor_01_the_door.png`
+- Chrome: `/art/ui/ui_shared_pulse.png`, `ui_floor_pulse.png`, `ui_declare.png`, `ui_hold.png`
+
+16:9 outs are letterboxed/cropped (`object-fit: cover`). Drop exports in `uploads/` and run `node scripts/ingest-art.cjs` to copy.
+
 ## Known gaps (out of scope / still greybox)
 
 - Native apps, full LLM chat, PvP, friend ghosts, real payments, VIP, dual-Take combo, 3→reroll

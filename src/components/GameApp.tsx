@@ -2,8 +2,9 @@
 
 import { useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import { COMPANIONS } from "@/lib/companions";
+import { cardArtSrc, companionArtSrc, UI_ART } from "@/lib/art";
 import type { MeDto } from "@/lib/player";
-import { CardTile, CatalogCard, type HandCard } from "./CardTile";
+import { ArtFrame, CardTile, CatalogCard, type HandCard } from "./CardTile";
 import { PulseBar } from "./PulseBar";
 
 type Tab = "home" | "pack" | "clash" | "chat";
@@ -247,6 +248,7 @@ export function GameApp() {
               disabled={busy}
               onClick={() => claim(c.id)}
             >
+              <ArtFrame src={companionArtSrc(c.id)} alt={c.name} />
               <div className="claim-name">
                 <strong>{c.name}</strong>
                 <span>{c.title}</span>
@@ -271,9 +273,16 @@ export function GameApp() {
   return (
     <div className="phone">
       <header className="topbar">
-        <div>
-          <p className="eyebrow">Cardpanions</p>
-          <h1>{me.companion?.name}</h1>
+        <div className="topbar-id">
+          <ArtFrame
+            src={companionArtSrc(me.companion?.id)}
+            alt={me.companion?.name ?? "Rival"}
+            className="tiny"
+          />
+          <div>
+            <p className="eyebrow">Cardpanions</p>
+            <h1>{me.companion?.name}</h1>
+          </div>
         </div>
         <div className="pills">
           <span>Lv {me.playerLevel}</span>
@@ -451,6 +460,7 @@ function HomeTab({
           {me.cards.map((c) => (
             <CatalogCard
               key={c.id}
+              id={c.id}
               name={c.name}
               type={c.type}
               energy={c.energy}
@@ -480,7 +490,7 @@ function PackTab({
   busy,
 }: {
   me: MeDto;
-  grants: { name: string; text: string; type: string; isNew: boolean; dust: number }[] | null;
+  grants: { cardId?: string; name: string; text: string; type: string; isNew: boolean; dust: number }[] | null;
   onPull: () => void;
   busy: boolean;
 }) {
@@ -507,6 +517,9 @@ function PackTab({
         <div className="reveal">
           {grants.map((g) => (
             <article key={g.name + g.text} className={g.isNew ? "new" : "dupe"}>
+              {g.cardId ? (
+                <ArtFrame src={cardArtSrc(g.type, g.cardId)} alt={g.name} />
+              ) : null}
               <span>{g.type}</span>
               <h3>{g.name}</h3>
               <p>{g.text}</p>
@@ -541,7 +554,8 @@ function ClashTab({
 
   if (!clash || clash.status !== "active") {
     return (
-      <div className="stack">
+      <div className="stack clash-stage">
+        <ArtFrame src="/art/floors/floor_01_the_door.png" alt="The Door" />
         <h2>The Door</h2>
         <p className="hint">
           Tower floor 1. Shared Pulse vs Floor Pulse. Clash cut hits the
@@ -580,7 +594,7 @@ function ClashTab({
     clash.hand.some((c) => c.type === "take" && c.energy <= clash.energy);
 
   return (
-    <div className="clash">
+    <div className="clash clash-stage">
       <PulseBar
         label={clash.floorName}
         current={clash.floorPulse}
@@ -650,17 +664,36 @@ function ClashTab({
       <div className="cta-row wrap">
         <button
           type="button"
-          className="primary"
+          className="primary chrome-btn"
           disabled={busy || !canClash || (selectedCard?.energy ?? 99) > clash.energy}
           onClick={() => onAct({ type: "declare", iid: selectedCard!.iid })}
         >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            className="chrome-icon"
+            src={UI_ART.declare}
+            alt=""
+            onError={(e) => {
+              e.currentTarget.style.display = "none";
+            }}
+          />
           Declare (face-up)
         </button>
         <button
           type="button"
+          className="chrome-btn"
           disabled={busy || !canClash || (selectedCard?.energy ?? 99) > clash.energy}
           onClick={() => onAct({ type: "hold", iid: selectedCard!.iid })}
         >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            className="chrome-icon"
+            src={UI_ART.hold}
+            alt=""
+            onError={(e) => {
+              e.currentTarget.style.display = "none";
+            }}
+          />
           Hold (sealed)
         </button>
         <button
