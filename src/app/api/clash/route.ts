@@ -42,7 +42,7 @@ async function activeClash(playerId: string) {
 export async function GET() {
   const player = await getOrCreatePlayer();
   if (!player.claimed) {
-    return NextResponse.json({ error: "Claim a companion first." }, { status: 400 });
+    return NextResponse.json({ error: "Choose a rival first." }, { status: 400 });
   }
   const run = await activeClash(player.id);
   if (!run) return NextResponse.json({ clash: null, me: toMeDto(player) });
@@ -56,7 +56,7 @@ export async function GET() {
 export async function POST() {
   const player = await getOrCreatePlayer();
   if (!player.claimed) {
-    return NextResponse.json({ error: "Claim a companion first." }, { status: 400 });
+    return NextResponse.json({ error: "Choose a rival first." }, { status: 400 });
   }
 
   const existing = await activeClash(player.id);

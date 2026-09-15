@@ -34,16 +34,19 @@ type ClashView = {
     cut: number;
     multiplier: number;
     playerLeads: boolean;
+    playerDeclared?: boolean;
     fog?: boolean;
+    sealed?: boolean;
     secondFirst?: boolean;
     sharedDelta: number;
     floorDelta: number;
     note: string;
   } | null;
   riffBonus: number;
-  overreachArmed: boolean;
   denyArmed: boolean;
   raiseStakes: boolean;
+  peekedIntent?: { id: string; name: string } | null;
+  steadyBreathUsed?: boolean;
 };
 
 async function api<T>(path: string, init?: RequestInit): Promise<T> {
@@ -193,6 +196,16 @@ export function GameApp() {
     });
   }
 
+  async function claimAfk() {
+    await run(async () => {
+      const data = await api<{ me: MeDto; claimed: { fragments: number } }>(
+        "/api/afk/claim",
+        { method: "POST" },
+      );
+      setMe(data.me);
+    });
+  }
+
   async function rankUp(cardId: string) {
     await run(async () => {
       const data = await api<MeDto>("/api/rank", {
@@ -216,10 +229,11 @@ export function GameApp() {
       <div className="phone">
         <header className="brand">
           <p className="eyebrow">Cardpanions</p>
-          <h1>Claim a rival.</h1>
+          <h1>Choose a rival.</h1>
           <p className="lede">
-            Traits are Accept / Reject. They color voice and pack weights — not DPS.
-            Remodel is free early.
+            Claim this companion for the run. Traits are Accept / Reject — they
+            color voice and pack weights, not DPS. This is not AFK idle; idle
+            claim is a separate button after you pick.
           </p>
         </header>
         {err ? <p className="err">{err}</p> : null}
@@ -246,6 +260,7 @@ export function GameApp() {
                   Reject <b>{c.traits.reject}</b>
                 </li>
               </ul>
+              <span className="claim-cta">Claim companion</span>
             </button>
           ))}
         </div>
@@ -291,6 +306,7 @@ export function GameApp() {
             onPack={() => setTab("pack")}
             onChat={() => setTab("chat")}
             onRank={rankUp}
+            onAfk={claimAfk}
             onReset={reset}
             busy={busy}
           />
@@ -360,6 +376,7 @@ function HomeTab({
   onPack,
   onChat,
   onRank,
+  onAfk,
   onReset,
   busy,
 }: {
@@ -368,6 +385,7 @@ function HomeTab({
   onPack: () => void;
   onChat: () => void;
   onRank: (id: string) => void;
+  onAfk: () => void;
   onReset: () => void;
   busy: boolean;
 }) {
@@ -375,7 +393,8 @@ function HomeTab({
     <div className="stack">
       <p className="lede">
         Play-to-win. Money would only buy chat fuel — never Power, ranks, or
-        clears. Chat is garnish; cards / PvE / AFK are the loop.
+        clears. Chat is garnish; cards / PvE / AFK are the loop. Companion pick
+        is not AFK idle.
       </p>
       <div className="stat-grid">
         <div>
@@ -407,6 +426,10 @@ function HomeTab({
         <button type="button" onClick={onChat}>
           Chat
         </button>
+        <button type="button" onClick={onAfk} disabled={busy}>
+          Claim idle
+          {me.afk.pendingFragments > 0 ? ` (+${me.afk.pendingFragments})` : ""}
+        </button>
       </div>
       <section>
         <h2>Set synergies</h2>
@@ -432,6 +455,8 @@ function HomeTab({
               type={c.type}
               energy={c.energy}
               power={c.power}
+              chaosMin={c.chaosMin}
+              chaosMax={c.chaosMax}
               text={c.text}
               owned={c.owned}
               rank={c.rank}
@@ -578,22 +603,33 @@ function ClashTab({
       {clash.lastClash ? (
         <div className="last-clash">
           <strong>
+            {clash.lastClash.fog || clash.lastClash.sealed ? (
+              <span className="seal" title="Hold was sealed until Flip">
+                ⌽
+              </span>
+            ) : null}
             {clash.lastClash.playerCardName} {clash.lastClash.playerPower} vs{" "}
             {clash.lastClash.floorCardName} {clash.lastClash.floorPower}
           </strong>
           <p>
-            {clash.lastClash.playerLeads ? "Declare face-up" : "Hold face-down"} · cut{" "}
-            {clash.lastClash.cut} (×{clash.lastClash.multiplier}) · you{" "}
+            {clash.lastClash.playerDeclared ?? clash.lastClash.playerLeads
+              ? "Declare face-up (First)"
+              : "Hold flipped (was sealed)"}{" "}
+            · cut {clash.lastClash.cut} (×{clash.lastClash.multiplier}) · you{" "}
             {clash.lastClash.sharedDelta} / floor {clash.lastClash.floorDelta}
           </p>
           {clash.lastClash.note ? <p>{clash.lastClash.note}</p> : null}
         </div>
       ) : (
         <p className="hint">
-          Pick a Take, then Declare (face-up, First) or Hold (face-down, Second).
-          End turn unlocks after the clash. Leftover energy can Riff.
+          Pick a Take, then Declare (face-up, First / Lead) or Hold (sealed until
+          Flip, Second / React). End turn unlocks after the clash. Leftover energy
+          can Riff.
         </p>
       )}
+      {clash.peekedIntent ? (
+        <p className="hint">Floor intent: {clash.peekedIntent.name}</p>
+      ) : null}
       <div className="hand">
         {clash.hand.map((c) => (
           <CardTile
@@ -618,14 +654,14 @@ function ClashTab({
           disabled={busy || !canClash || (selectedCard?.energy ?? 99) > clash.energy}
           onClick={() => onAct({ type: "declare", iid: selectedCard!.iid })}
         >
-          Declare
+          Declare (face-up)
         </button>
         <button
           type="button"
           disabled={busy || !canClash || (selectedCard?.energy ?? 99) > clash.energy}
           onClick={() => onAct({ type: "hold", iid: selectedCard!.iid })}
         >
-          Hold
+          Hold (sealed)
         </button>
         <button
           type="button"
@@ -655,9 +691,9 @@ function ClashTab({
         ))}
       </ol>
       <p className="hint">
-        Aura from bond: +{me.bondAuraPower} Power, +{me.bondAuraPulse} Pulse
-        cap (soft-diminishes). Companion {me.companion?.name} is a warm rival —
-        not a DPS stat.
+        Aura from bond: +{me.bondAuraPulse} Pulse cap (soft-diminishes). No
+        clash Power from chat. Companion {me.companion?.name} is a warm rival —
+        not a DPS stat. Clash deck is the locked 8 Takes + 5 Riffs.
       </p>
     </div>
   );

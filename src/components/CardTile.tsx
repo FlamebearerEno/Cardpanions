@@ -9,6 +9,10 @@ export type HandCard = {
   power: number;
   keywords: string[];
   text: string;
+  chaosMin?: number;
+  chaosMax?: number;
+  swagger?: number;
+  defend?: number;
 };
 
 export function CardTile({
@@ -31,7 +35,15 @@ export function CardTile({
         <span className="cost">{card.energy}e</span>
       </header>
       <h3>{card.name}</h3>
-      {card.type === "take" ? <div className="pow">P {card.power}</div> : <div className="pow muted">open</div>}
+      {card.type === "take" ? (
+        <div className="pow">
+          {card.chaosMin != null && card.chaosMax != null
+            ? `Chaos ${card.chaosMin}–${card.chaosMax}`
+            : `P ${card.power}`}
+        </div>
+      ) : (
+        <div className="pow muted">open</div>
+      )}
       <p>{card.text}</p>
     </button>
   );
@@ -47,6 +59,8 @@ export function CatalogCard({
   rank,
   onRank,
   canRank,
+  chaosMin,
+  chaosMax,
 }: {
   name: string;
   type: string;
@@ -57,13 +71,20 @@ export function CatalogCard({
   rank: number;
   onRank?: () => void;
   canRank?: boolean;
+  chaosMin?: number;
+  chaosMax?: number;
 }) {
   return (
     <article className={`catalog-card ${owned ? "owned" : "locked"}`}>
       <header>
         <span>{type}</span>
         <span>
-          {energy}e{type === "take" ? ` · P${power}` : ""}
+          {energy}e
+          {type === "take"
+            ? chaosMin != null && chaosMax != null
+              ? ` · Chaos ${chaosMin}–${chaosMax}`
+              : ` · P${power}`
+            : ""}
         </span>
       </header>
       <h4>{name}</h4>

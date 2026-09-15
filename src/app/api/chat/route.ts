@@ -19,7 +19,7 @@ export async function POST(request: Request) {
   const player = await getOrCreatePlayer();
   if (!player.claimed || !player.companionId) {
     return NextResponse.json(
-      { error: "Claim a companion first." },
+      { error: "Choose a rival first." },
       { status: 400 },
     );
   }

@@ -1,26 +1,31 @@
-import { cardsInSet, getAnyCard, getCard, remapCardId, STARTER_IDS, SETS } from "./cards";
+import {
+  cardsInSet,
+  getAnyCard,
+  getCard,
+  remapCardId,
+  STARTER_IDS,
+  SETS,
+  type CardDef,
+} from "./cards";
 import { SeededRng } from "./rng";
 import {
   BOND_PER_MESSAGE,
-  bondAuraPower,
   clashCut,
   CLASH_CUT_MULT,
-  defendPartial,
   DRAW_PER_TURN,
   ENERGY_MAX,
   ENRAGE_POWER_PER_TURN,
   ENRAGE_START_TURN,
   FLOOR_BAND_DOOR,
   FLOOR_PULSE_FACTOR,
-  floorPulseFromShared,
+  floorPulseFromYardstick,
   HAND_CAP,
-  OVERREACH_LOSE_CUT,
-  OVERREACH_POWER,
-  RAISE_STAKES_MULT,
+  OVERREACH_PULSE_COST,
+  raiseStakesMultiplier,
   rankPowerBonus,
   sharedPulseMax,
   SILENCE_PRESS,
-  SWAGGER_BONUS_CUT,
+  STEADY_BREATH_HEAL,
 } from "./formulas";
 
 export type CardInst = { iid: string; cardId: string };
@@ -42,7 +47,10 @@ export type LastClash = {
   cut: number;
   multiplier: number;
   playerLeads: boolean;
+  playerDeclared: boolean;
+  floorDeclared: boolean;
   fog: boolean;
+  sealed: boolean;
   secondFirst: boolean;
   secondFirstCancelled: boolean;
   sharedDelta: number;
@@ -72,9 +80,11 @@ export type ClashState = {
   clashUsed: boolean;
   riffBonus: number;
   nextClashBonus: number;
-  overreachArmed: boolean;
   denyArmed: boolean;
   raiseStakes: boolean;
+  steadyBreathUsed: boolean;
+  peekedIntent: string | null;
+  lastEnemyDeclared: boolean;
   status: "active" | "won" | "lost";
   log: string[];
   lastClash: LastClash | null;
@@ -101,6 +111,10 @@ const FLOOR_ROTATION = [
   "floor_hook",
 ] as const;
 
+export function floorScriptedTake(turn: number): string {
+  return FLOOR_ROTATION[(turn - 1) % FLOOR_ROTATION.length]!;
+}
+
 export function setBonuses(ownedIds: string[]): {
   power: number;
   riffDiscount: number;
@@ -124,10 +138,9 @@ export function setBonuses(ownedIds: string[]): {
   return { power, riffDiscount, holdPower, complete };
 }
 
-export function buildDeck(owned: OwnedCard[], rng: SeededRng): CardInst[] {
-  const ids = new Set(owned.map((o) => remapCardId(o.cardId)));
-  for (const id of STARTER_IDS) ids.add(id);
-  const insts: CardInst[] = [...ids].map((cardId, i) => ({
+/** Battle deck is the locked 8 Takes + 5 Riffs. Unlocks stay in collection. */
+export function buildDeck(_owned: OwnedCard[], rng: SeededRng): CardInst[] {
+  const insts: CardInst[] = STARTER_IDS.map((cardId, i) => ({
     iid: `d${i + 1}`,
     cardId,
   }));
@@ -171,8 +184,8 @@ export function createClashState(
     ctx.companionLevel,
     ctx.bond,
   );
-  const floorMax = floorPulseFromShared(
-    pulse.max,
+  const floorMax = floorPulseFromYardstick(
+    pulse.playerSegment,
     FLOOR_BAND_DOOR,
     FLOOR_PULSE_FACTOR,
   );
@@ -199,13 +212,15 @@ export function createClashState(
     clashUsed: false,
     riffBonus: 0,
     nextClashBonus: 0,
-    overreachArmed: false,
     denyArmed: false,
     raiseStakes: false,
+    steadyBreathUsed: false,
+    peekedIntent: null,
+    lastEnemyDeclared: false,
     status: "active",
     log: [
-      `Floor 1 — The Door. Shared Pulse ${pulse.max} vs Floor Pulse ${floorMax} (snapshotted ${pulse.max}×${FLOOR_BAND_DOOR}×${FLOOR_PULSE_FACTOR}).`,
-      "1 clash/turn. Declare face-up (First) or Hold face-down (Second). Leftover energy → Riffs. Shelf = discard.",
+      `Floor 1 — The Door. Shared Pulse ${pulse.max} vs Floor Pulse ${floorMax} (player PulseMax ${pulse.playerSegment} × band ${FLOOR_BAND_DOOR} × ${FLOOR_PULSE_FACTOR}).`,
+      "1 clash/turn. Declare = face-up First. Hold = face-down Second. Leftover energy → Riffs. Shelf = discard.",
     ],
     lastClash: null,
     rngSeed: seed,
@@ -230,9 +245,7 @@ function spendFromHand(state: ClashState, iid: string): CardInst {
 
 function rankOf(ctx: ClashContext, cardId: string): number {
   const id = remapCardId(cardId);
-  return (
-    ctx.owned.find((o) => remapCardId(o.cardId) === id)?.rank ?? 1
-  );
+  return ctx.owned.find((o) => remapCardId(o.cardId) === id)?.rank ?? 1;
 }
 
 function addClashPower(state: ClashState, n: number): void {
@@ -250,7 +263,7 @@ export function commitFloorTake(
   rng: SeededRng,
   revealedPrintedPower: number | null,
 ): string {
-  const rotation = FLOOR_ROTATION[(state.turn - 1) % FLOOR_ROTATION.length]!;
+  const rotation = floorScriptedTake(state.turn);
   const wild = rng.next() < 0.18;
   let pick = wild ? rng.pick([...FLOOR_ROTATION]) : rotation;
   if (revealedPrintedPower != null) {
@@ -268,18 +281,22 @@ export function enragePower(turn: number): number {
 export type ClashComputeInput = {
   playerCardId: string | null;
   floorCardId: string;
-  playerLeads: boolean;
+  /** Lead/React: who is First. Declare button sets this true. */
+  playerIsFirst: boolean;
+  playerDeclared: boolean;
+  floorDeclared: boolean;
   playerRank: number;
   riffBonus: number;
   nextClashBonus: number;
   setPower: number;
   setHoldPower: number;
-  bondPower: number;
-  overreachArmed: boolean;
   denyArmed: boolean;
   raiseStakes: boolean;
   sharedPulse: number;
+  sharedPulseMax: number;
   floorPulse: number;
+  floorPulseMax: number;
+  lastEnemyDeclared: boolean;
   turn: number;
   rng: SeededRng;
 };
@@ -295,124 +312,202 @@ export type ClashComputeResult = {
   note: string;
   secondFirst: boolean;
   secondFirstCancelled: boolean;
+  playerDeclared: boolean;
+  floorDeclared: boolean;
 };
+
+type TriggerKind = "cancel" | "swagger" | "defend" | "heal";
+type TriggerOwner = "player" | "floor";
+type Trigger = {
+  owner: TriggerOwner;
+  kind: TriggerKind;
+  amount?: number;
+};
+
+function printedPower(def: CardDef, rank: number, rng: SeededRng): number {
+  if (def.chaosMin != null && def.chaosMax != null) {
+    return rng.int(def.chaosMin, def.chaosMax) + rankPowerBonus(rank);
+  }
+  return def.power + rankPowerBonus(rank);
+}
+
+function cardTextPower(
+  def: CardDef,
+  held: boolean,
+  input: ClashComputeInput,
+): number {
+  let extra = 0;
+  if (
+    def.id === "comeback_line" &&
+    held &&
+    input.sharedPulseMax > 0 &&
+    input.sharedPulse < input.sharedPulseMax * 0.5
+  ) {
+    extra += 4;
+  }
+  if (def.id === "exact_count" && input.floorPulseMax > 0) {
+    const pct = input.floorPulse / input.floorPulseMax;
+    if (pct >= 0.4 && pct <= 0.6) extra += 3;
+  }
+  if (def.id === "finisher_bite" && input.floorPulseMax > 0) {
+    const pct = input.floorPulse / input.floorPulseMax;
+    if (pct > 0.7) extra -= 4;
+  }
+  if (def.id === "contrarian_echo" && input.lastEnemyDeclared) {
+    extra += 4;
+  }
+  return extra;
+}
+
+function sideTriggers(
+  def: CardDef | null,
+  declared: boolean,
+  owner: TriggerOwner,
+  denyArmed: boolean,
+): Trigger[] {
+  const out: Trigger[] = [];
+  if (owner === "player" && denyArmed) {
+    out.push({ owner, kind: "cancel" });
+  }
+  if (!def) return out;
+  if (declared && def.swagger > 0) {
+    out.push({ owner, kind: "swagger", amount: def.swagger });
+  }
+  if (!declared) {
+    if (def.keywords.includes("cancel")) {
+      out.push({ owner, kind: "cancel" });
+    }
+    if (def.defend > 0) {
+      out.push({ owner, kind: "defend", amount: def.defend });
+    }
+    if (def.id === "bitter_balm") {
+      out.push({ owner, kind: "heal", amount: 8 });
+    }
+  }
+  return out;
+}
 
 export function computeClash(input: ClashComputeInput): ClashComputeResult {
   const playerDef = input.playerCardId ? getAnyCard(input.playerCardId) : null;
   const floorDef = getAnyCard(input.floorCardId);
-  const playerIsFirst = input.playerLeads && Boolean(playerDef);
-  const playerIsSecond = Boolean(playerDef) && !input.playerLeads;
-
-  let pPower = playerDef
-    ? playerDef.power + rankPowerBonus(input.playerRank)
-    : 0;
-  let fPower = floorDef.power + enragePower(input.turn);
-
-  let pKeys = [...(playerDef?.keywords ?? [])];
-  let fKeys = [...floorDef.keywords];
-
-  const playerHasCancel =
-    input.denyArmed || pKeys.includes("cancel");
-  const floorHasCancel = fKeys.includes("cancel");
-  const firstHasCancel = playerIsFirst ? playerHasCancel : floorHasCancel;
-  const secondHasCancel = playerIsFirst ? floorHasCancel : playerHasCancel;
-
-  let secondFirstCancelled = false;
+  const playerDeclared = input.playerDeclared && Boolean(playerDef);
+  const floorDeclared = input.floorDeclared;
+  const playerHeld = Boolean(playerDef) && !playerDeclared;
+  const playerIsFirst = Boolean(playerDef) && input.playerIsFirst;
   const notes: string[] = [];
 
-  if (firstHasCancel) {
-    secondFirstCancelled = true;
-    if (playerIsFirst) {
-      fKeys = [];
-      notes.push("First Cancel stripped Second-first.");
-    } else {
-      pKeys = [];
-      notes.push("Floor First Cancel stripped your Second-first.");
+  let pPower = playerDef
+    ? printedPower(playerDef, input.playerRank, input.rng)
+    : 0;
+  let fPower = printedPower(floorDef, 1, input.rng) + enragePower(input.turn);
+
+  if (playerDef) {
+    pPower += cardTextPower(playerDef, playerHeld, input);
+  }
+
+  pPower += input.riffBonus + input.nextClashBonus + input.setPower;
+  if (playerHeld) pPower += input.setHoldPower;
+
+  // Deny cancels an opposing Declare (priority steal) as "next trigger".
+  const firstDeclared = playerIsFirst ? playerDeclared : floorDeclared;
+  const firstDeclareCancelled =
+    Boolean(playerDef) &&
+    !playerIsFirst &&
+    floorDeclared &&
+    input.denyArmed;
+  const firstSteals = firstDeclared && !firstDeclareCancelled;
+  const secondFirst = Boolean(playerDef) && !firstSteals;
+  const secondFirstCancelled = firstSteals && firstDeclared;
+
+  if (firstDeclareCancelled) {
+    notes.push("Deny cancelled the First Declare. Second triggers first.");
+  } else if (firstSteals) {
+    notes.push("Uncancelled Declare steals trigger priority.");
+  } else if (playerDef) {
+    notes.push("Both Hold / no Declare: Second triggers first.");
+  }
+
+  const playerTriggers = sideTriggers(
+    playerDef,
+    playerDeclared,
+    "player",
+    input.denyArmed,
+  );
+  const floorTriggers = sideTriggers(
+    floorDef,
+    floorDeclared,
+    "floor",
+    false,
+  );
+  const firstTriggers = playerIsFirst ? playerTriggers : floorTriggers;
+  const secondTriggers = playerIsFirst ? floorTriggers : playerTriggers;
+  const queue = secondFirst
+    ? [...secondTriggers, ...firstTriggers]
+    : [...firstTriggers, ...secondTriggers];
+
+  let cancelArmedFor: TriggerOwner | null = null;
+  let playerDefend = 0;
+  let floorDefend = 0;
+  let heal = 0;
+
+  for (const t of queue) {
+    if (cancelArmedFor === t.owner && t.kind !== "cancel") {
+      cancelArmedFor = null;
+      notes.push(
+        `Cancel stripped ${t.owner === "player" ? "your" : "floor"} ${t.kind}.`,
+      );
+      continue;
     }
-  } else if (secondHasCancel) {
-    if (playerIsFirst) {
-      pKeys = [];
-      notes.push("Floor Second-first Cancel stripped First.");
-    } else {
-      fKeys = [];
-      notes.push("Second-first Cancel stripped First.");
+    switch (t.kind) {
+      case "cancel":
+        cancelArmedFor = t.owner === "player" ? "floor" : "player";
+        notes.push(
+          `${t.owner === "player" ? "Your" : "Floor"} Cancel armed.`,
+        );
+        break;
+      case "swagger":
+        if (t.owner === "player") {
+          pPower += t.amount ?? 0;
+          notes.push(`Swagger +${t.amount}.`);
+        } else {
+          fPower += t.amount ?? 0;
+          notes.push(`Floor Swagger +${t.amount}.`);
+        }
+        break;
+      case "defend":
+        if (t.owner === "player") {
+          playerDefend = t.amount ?? 0;
+          notes.push(`Flip: Defend ${playerDefend}.`);
+        } else {
+          floorDefend = t.amount ?? 0;
+          notes.push(`Floor Flip: Defend ${floorDefend}.`);
+        }
+        break;
+      case "heal":
+        if (t.owner === "player") {
+          heal += t.amount ?? 0;
+          notes.push(`Flip: heal ${t.amount}.`);
+        }
+        break;
+      default:
+        break;
     }
   }
 
-  const secondFirstLive = playerIsSecond && !secondFirstCancelled;
-
-  if (pKeys.includes("lead") && playerIsFirst) pPower += 2;
-  if (fKeys.includes("lead") && !playerIsFirst) fPower += 2;
-
-  if (secondFirstLive) {
-    if (playerDef?.id === "contrarian_echo") {
-      pPower = Math.max(pPower, fPower) + 1;
-      notes.push("Second-first: Contrarian Echo.");
-    } else if (pKeys.includes("react")) {
-      pPower += 4;
-      notes.push("Second-first: React +4.");
-    }
-  } else if (playerIsFirst && fKeys.includes("react")) {
-    fPower += 4;
-  }
-
-  if (playerDef?.id === "comeback_line" && input.sharedPulse < input.floorPulse) {
-    pPower += 4;
-  }
-
-  pPower +=
-    input.riffBonus + input.nextClashBonus + input.setPower + input.bondPower;
-  if (playerIsSecond) pPower += input.setHoldPower;
-  if (input.overreachArmed) pPower += OVERREACH_POWER;
-
-  const chaos = pKeys.includes("chaos") || fKeys.includes("chaos");
-  if (chaos) {
-    if (playerDef?.id !== "exact_count") {
-      pPower += input.rng.int(-3, 3);
-    }
-    fPower += input.rng.int(-3, 3);
-  }
-
-  const multiplier = input.raiseStakes ? RAISE_STAKES_MULT : CLASH_CUT_MULT;
+  const multiplier = raiseStakesMultiplier(input.raiseStakes);
   const cut = clashCut(pPower - fPower, multiplier);
 
   let sharedDelta = 0;
   let floorDelta = 0;
 
   if (pPower < fPower) {
-    let dmg = cut;
-    if (pKeys.includes("defend")) {
-      dmg = defendPartial(dmg);
-      notes.push("Defend halved the cut.");
-    }
-    if (input.overreachArmed) {
-      dmg += OVERREACH_LOSE_CUT;
-      notes.push(`Overreach tax +${OVERREACH_LOSE_CUT}.`);
-    }
-    if (fKeys.includes("swagger")) {
-      dmg += SWAGGER_BONUS_CUT;
-      notes.push("Floor Swagger +10.");
-    }
+    const dmg = Math.max(0, cut - playerDefend);
     sharedDelta = -dmg;
   } else if (pPower > fPower) {
-    let dmg = cut;
-    if (fKeys.includes("defend")) {
-      dmg = defendPartial(dmg);
-      notes.push("Floor Defend halved the cut.");
-    }
-    if (pKeys.includes("swagger")) {
-      dmg += SWAGGER_BONUS_CUT;
-      notes.push("Swagger +10.");
-    }
+    const dmg = Math.max(0, cut - floorDefend);
     floorDelta = -dmg;
   } else {
     notes.push("Powers tied. No cut.");
-  }
-
-  let heal = 0;
-  if (playerDef?.id === "bitter_balm") {
-    heal = 8;
-    notes.push("Bitter Balm restores 8.");
   }
 
   return {
@@ -424,8 +519,10 @@ export function computeClash(input: ClashComputeInput): ClashComputeResult {
     floorDelta,
     heal,
     note: notes.join(" "),
-    secondFirst: secondFirstLive,
+    secondFirst,
     secondFirstCancelled,
+    playerDeclared,
+    floorDeclared,
   };
 }
 
@@ -452,16 +549,28 @@ function applyPulse(
   }
 }
 
+function publicDeclarePower(def: CardDef, rank: number): number {
+  if (def.chaosMin != null && def.chaosMax != null) {
+    return def.chaosMax + rankPowerBonus(rank);
+  }
+  return def.power + def.swagger + rankPowerBonus(rank);
+}
+
 function resolveDeclaredClash(
   state: ClashState,
   ctx: ClashContext,
   rng: SeededRng,
   playerCardId: string | null,
-  playerLeads: boolean,
+  playerDeclared: boolean,
 ): void {
+  const playerIsFirst = playerDeclared;
+  const floorDeclared = !playerDeclared;
   const printed =
-    playerLeads && playerCardId
-      ? getAnyCard(playerCardId).power + rankPowerBonus(rankOf(ctx, playerCardId))
+    playerDeclared && playerCardId
+      ? publicDeclarePower(
+          getAnyCard(playerCardId),
+          rankOf(ctx, playerCardId),
+        )
       : null;
   const floorId = commitFloorTake(state, rng, printed);
   const floorDef = getAnyCard(floorId);
@@ -469,33 +578,36 @@ function resolveDeclaredClash(
   const result = computeClash({
     playerCardId,
     floorCardId: floorId,
-    playerLeads,
+    playerIsFirst,
+    playerDeclared,
+    floorDeclared,
     playerRank: playerCardId ? rankOf(ctx, playerCardId) : 1,
     riffBonus: state.riffBonus,
     nextClashBonus: state.nextClashBonus,
     setPower: bonuses.power,
     setHoldPower: bonuses.holdPower,
-    bondPower: bondAuraPower(ctx.bond),
-    overreachArmed: state.overreachArmed,
     denyArmed: state.denyArmed,
     raiseStakes: state.raiseStakes,
     sharedPulse: state.sharedPulse,
+    sharedPulseMax: state.sharedPulseMax,
     floorPulse: state.floorPulse,
+    floorPulseMax: state.floorPulseMax,
+    lastEnemyDeclared: state.lastEnemyDeclared,
     turn: state.turn,
     rng,
   });
 
   const playerName = playerCardId ? getAnyCard(playerCardId).name : "Silence";
-  const fog = Boolean(playerCardId) && !playerLeads;
+  const fog = Boolean(playerCardId) && !playerDeclared;
   const stance = playerCardId
-    ? playerLeads
+    ? playerDeclared
       ? "Declare (face-up, First)"
       : "Hold (face-down, Second)"
     : "no Take";
 
   applyPulse(state, result.sharedDelta, result.floorDelta, result.heal);
 
-  const fogNote = fog ? "Floor committed blind. " : "";
+  const fogNote = fog ? "Held sealed until Flip. " : "Declare public before Flip. ";
   state.lastClash = {
     playerCard: playerCardId,
     playerCardName: playerName,
@@ -505,8 +617,11 @@ function resolveDeclaredClash(
     floorPower: result.floorPower,
     cut: result.cut,
     multiplier: result.multiplier,
-    playerLeads: Boolean(playerCardId) && playerLeads,
+    playerLeads: Boolean(playerCardId) && playerIsFirst,
+    playerDeclared: result.playerDeclared,
+    floorDeclared: result.floorDeclared,
     fog,
+    sealed: fog,
     secondFirst: result.secondFirst,
     secondFirstCancelled: result.secondFirstCancelled,
     sharedDelta: result.sharedDelta + result.heal,
@@ -526,9 +641,10 @@ function resolveDeclaredClash(
 
   state.riffBonus = 0;
   state.nextClashBonus = 0;
-  state.overreachArmed = false;
   state.denyArmed = false;
   state.raiseStakes = false;
+  state.peekedIntent = null;
+  state.lastEnemyDeclared = result.floorDeclared;
   state.clashUsed = true;
 }
 
@@ -553,6 +669,12 @@ function playRiff(
   if (def.id === "second_thought" && state.shelf.length === 0) {
     throw new Error("Shelf is empty.");
   }
+  if (def.id === "steady_breath" && state.steadyBreathUsed) {
+    throw new Error("Steady Breath is once per turn.");
+  }
+  if (def.id === "overreach_riff" && state.sharedPulse < OVERREACH_PULSE_COST) {
+    throw new Error("Not enough Shared Pulse to Overreach.");
+  }
 
   state.energy -= cost;
   spendFromHand(state, iid);
@@ -570,23 +692,30 @@ function playRiff(
       break;
     }
     case "steady_breath": {
-      const heal = 10;
+      state.steadyBreathUsed = true;
       const before = state.sharedPulse;
-      state.sharedPulse = Math.min(state.sharedPulseMax, state.sharedPulse + heal);
+      state.sharedPulse = Math.min(
+        state.sharedPulseMax,
+        state.sharedPulse + STEADY_BREATH_HEAL,
+      );
       state.log.push(`Steady Breath: +${state.sharedPulse - before} Pulse.`);
       break;
     }
-    case "read_ahead":
-      addClashPower(state, 3);
-      state.log.push("Read Ahead: +3 next clash Power.");
+    case "read_ahead": {
+      const intent = floorScriptedTake(state.turn);
+      state.peekedIntent = intent;
+      state.log.push(
+        `Read Ahead: floor intends ${getAnyCard(intent).name} (scripted).`,
+      );
       break;
+    }
     case "amp_next":
-      addClashPower(state, 5);
-      state.log.push("Amp: +5 next clash Power.");
+      addClashPower(state, 3);
+      state.log.push("Amp: +3 next Take Power.");
       break;
     case "deny":
       state.denyArmed = true;
-      state.log.push("Deny: your Cancel is armed for the next clash.");
+      state.log.push("Deny: Cancel Swagger or the next trigger.");
       break;
     case "second_thought": {
       const idx = state.shelf.length - 2;
@@ -606,11 +735,18 @@ function playRiff(
     }
     case "raise_stakes":
       state.raiseStakes = true;
-      state.log.push("Raise Stakes: next cut is PowerDiff × 7.");
+      state.log.push("Raise Stakes: next cut ×1.25 both pools.");
       break;
     case "overreach_riff":
-      state.overreachArmed = true;
-      state.log.push("Overreach armed: +6 Power, +15 cut if you lose.");
+      state.sharedPulse -= OVERREACH_PULSE_COST;
+      state.energy += 1;
+      state.log.push(
+        `Overreach: +1 Energy this turn, paid ${OVERREACH_PULSE_COST} Shared Pulse.`,
+      );
+      if (state.sharedPulse <= 0) {
+        state.status = "lost";
+        state.log.push("Shared Pulse broke. The Door holds.");
+      }
       break;
     default:
       state.log.push(`${def.name} plays.`);
@@ -622,7 +758,7 @@ function playTake(
   ctx: ClashContext,
   rng: SeededRng,
   iid: string,
-  lead: boolean,
+  declare: boolean,
 ): void {
   if (state.clashUsed) throw new Error("Already clashed this turn.");
   const inst = findInHand(state, iid);
@@ -634,7 +770,7 @@ function playTake(
   state.energy -= def.energy;
   spendFromHand(state, iid);
   state.shelf.push(inst);
-  resolveDeclaredClash(state, ctx, rng, def.id, lead);
+  resolveDeclaredClash(state, ctx, rng, def.id, declare);
 }
 
 function endTurn(state: ClashState, rng: SeededRng): void {
@@ -661,6 +797,8 @@ function endTurn(state: ClashState, rng: SeededRng): void {
   state.energy = ENERGY_MAX;
   state.clashUsed = false;
   state.riffBonus = 0;
+  state.steadyBreathUsed = false;
+  state.peekedIntent = null;
   drawUpTo(state, rng, DRAW_PER_TURN);
   if (state.turn >= ENRAGE_START_TURN) {
     state.log.push(
@@ -713,18 +851,25 @@ export function applyAction(
 
 export function remapClashState(state: ClashState): ClashState {
   const inst = (c: CardInst) => ({ ...c, cardId: remapCardId(c.cardId) });
+  const last = state.lastClash;
   return {
     ...state,
+    denyArmed: state.denyArmed ?? false,
+    raiseStakes: state.raiseStakes ?? false,
+    steadyBreathUsed: state.steadyBreathUsed ?? false,
+    peekedIntent: state.peekedIntent ? remapCardId(state.peekedIntent) : null,
+    lastEnemyDeclared: state.lastEnemyDeclared ?? false,
     hand: state.hand.map(inst),
     draw: state.draw.map(inst),
     shelf: state.shelf.map(inst),
-    lastClash: state.lastClash
+    lastClash: last
       ? {
-          ...state.lastClash,
-          playerCard: state.lastClash.playerCard
-            ? remapCardId(state.lastClash.playerCard)
-            : null,
-          floorCard: remapCardId(state.lastClash.floorCard),
+          ...last,
+          playerCard: last.playerCard ? remapCardId(last.playerCard) : null,
+          floorCard: remapCardId(last.floorCard),
+          playerDeclared: last.playerDeclared ?? last.playerLeads,
+          floorDeclared: last.floorDeclared ?? !last.playerLeads,
+          sealed: last.sealed ?? last.fog,
         }
       : null,
   };
@@ -736,24 +881,41 @@ export function clashView(state: ClashState, ctx: ClashContext) {
   );
   const resolve = (c: CardInst) => {
     const def = getCard(c.cardId);
+    const rankBonus = rankPowerBonus(ranks[remapCardId(c.cardId)] ?? 1);
+    const shownPower =
+      def.chaosMin != null && def.chaosMax != null
+        ? Math.floor((def.chaosMin + def.chaosMax) / 2) + rankBonus
+        : def.power + rankBonus;
     return {
       ...c,
       cardId: remapCardId(c.cardId),
       name: def.name,
       type: def.type,
       energy: def.energy,
-      power: def.power + rankPowerBonus(ranks[remapCardId(c.cardId)] ?? 1),
+      power: shownPower,
+      swagger: def.swagger,
+      defend: def.defend,
+      chaosMin: def.chaosMin,
+      chaosMax: def.chaosMax,
+      stance: def.stance,
       keywords: def.keywords,
       text: def.text,
     };
   };
   const { draw, shelf, ...rest } = state;
+  const peekDef = state.peekedIntent
+    ? getAnyCard(state.peekedIntent)
+    : null;
   return {
     ...rest,
     hand: state.hand.map(resolve),
     drawCount: draw.length,
     shelfCount: shelf.length,
+    peekedIntent: peekDef
+      ? { id: peekDef.id, name: peekDef.name }
+      : null,
     energyHint: "Leftover energy → Riffs. 1 clash/turn.",
     bondPerMessage: BOND_PER_MESSAGE,
+    cutRule: `|PowerDiff| × ${CLASH_CUT_MULT}`,
   };
 }

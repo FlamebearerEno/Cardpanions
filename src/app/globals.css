@@ -480,6 +480,29 @@ button.ghost {
   font-size: 12px;
 }
 
+.seal {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.4em;
+  height: 1.4em;
+  margin-right: 6px;
+  border-radius: 999px;
+  border: 1px solid var(--brass);
+  color: var(--brass);
+  font-size: 12px;
+  vertical-align: middle;
+}
+
+.claim-cta {
+  display: inline-block;
+  margin-top: 10px;
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--brass);
+}
+
 .log {
   padding-left: 18px;
   color: var(--muted);

@@ -36,6 +36,7 @@ export async function DELETE() {
       packPulls: 0,
       floorsCleared: 0,
       playerLevel: 1,
+      lastClaimAt: null,
     },
     include: { cards: true, messages: true },
   });

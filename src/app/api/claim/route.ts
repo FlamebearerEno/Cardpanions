@@ -23,7 +23,7 @@ export async function POST(request: Request) {
   const player = await getOrCreatePlayer();
   if (player.claimed) {
     return NextResponse.json(
-      { error: "You already claimed a companion." },
+      { error: "You already chose a rival." },
       { status: 409 },
     );
   }
@@ -33,6 +33,7 @@ export async function POST(request: Request) {
     data: {
       claimed: true,
       companionId,
+      lastClaimAt: new Date(),
       packTickets: 1,
       chatFuel: CHAT_FUEL_START,
       cards: {

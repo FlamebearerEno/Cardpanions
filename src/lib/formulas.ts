@@ -1,6 +1,6 @@
 /**
  * Combat and economy formulas. Player Level caps/unlocks; card Power is separate.
- * Bond aura is the only chat→combat leak, and it soft-diminishes.
+ * Bond feeds Shared Pulse cap only — no clash Power leak from chat volume.
  */
 
 /** Shared Pulse weights: player-weighted a > b. */
@@ -11,11 +11,10 @@ export const ENERGY_MAX = 3;
 export const DRAW_PER_TURN = 3;
 export const HAND_CAP = 7;
 export const CLASH_CUT_MULT = 5;
-export const RAISE_STAKES_MULT = 7;
-export const DEFEND_FACTOR = 0.5;
-export const SWAGGER_BONUS_CUT = 10;
-export const OVERREACH_POWER = 6;
-export const OVERREACH_LOSE_CUT = 15;
+/** Raise Stakes: next Clash cut ×1.25 both pools. */
+export const RAISE_STAKES_FACTOR = 1.25;
+export const OVERREACH_PULSE_COST = 8;
+export const STEADY_BREATH_HEAL = 10;
 export const SILENCE_PRESS = 12;
 export const ENRAGE_START_TURN = 5;
 export const ENRAGE_POWER_PER_TURN = 2;
@@ -34,16 +33,19 @@ export const WIN_FRAGMENTS = 15;
 export const WIN_BOND = 8;
 export const LOSE_FRAGMENTS = 3;
 
-/** The Door is band 1. Floor Pulse = round(SharedPulseMax × band × factor), snapshotted at clash start. */
+/**
+ * The Door is band 1. Floor PulseMax ≈ band × player PulseMax (yardstick).
+ * Band-1 factor sits in 0.8–1.2× of that yardstick (1.0 = even).
+ */
 export const FLOOR_BAND_DOOR = 1;
-export const FLOOR_PULSE_FACTOR = 0.78;
+export const FLOOR_PULSE_FACTOR = 1.0;
 
-export function floorPulseFromShared(
-  sharedMax: number,
+export function floorPulseFromYardstick(
+  playerPulseMax: number,
   band = FLOOR_BAND_DOOR,
   factor = FLOOR_PULSE_FACTOR,
 ): number {
-  return Math.round(sharedMax * band * factor);
+  return Math.round(playerPulseMax * band * factor);
 }
 
 /** Soft-diminishing bond → extra Shared Pulse cap. */
@@ -51,9 +53,9 @@ export function bondAuraPulse(bond: number): number {
   return Math.floor((24 * bond) / (bond + 60));
 }
 
-/** Soft-diminishing bond → extra clash Power. Small on purpose. */
+/** Chat volume does not leak into clash Power (Pulse-cap only). */
 export function bondAuraPower(bond: number): number {
-  return Math.floor((6 * bond) / (bond + 80));
+  return bond < 0 ? 0 : 0;
 }
 
 export function sharedPulseMax(
@@ -71,12 +73,15 @@ export function sharedPulseMax(
   };
 }
 
-export function clashCut(powerDiff: number, multiplier = CLASH_CUT_MULT): number {
-  return Math.abs(powerDiff) * multiplier;
+export function clashCut(
+  powerDiff: number,
+  multiplier = CLASH_CUT_MULT,
+): number {
+  return Math.round(Math.abs(powerDiff) * multiplier);
 }
 
-export function defendPartial(cut: number): number {
-  return Math.ceil(cut * DEFEND_FACTOR);
+export function raiseStakesMultiplier(armed: boolean): number {
+  return armed ? CLASH_CUT_MULT * RAISE_STAKES_FACTOR : CLASH_CUT_MULT;
 }
 
 export function rankPowerBonus(rank: number): number {
@@ -91,4 +96,26 @@ export function convertFragments(fragments: number): {
     tickets: Math.floor(fragments / FRAGMENTS_PER_TICKET),
     leftover: fragments % FRAGMENTS_PER_TICKET,
   };
+}
+
+/** Greybox AFK: 1 fragment × player level per 5 minutes, 8h cap. */
+export const AFK_TICK_MS = 5 * 60 * 1000;
+export const AFK_CAP_MS = 8 * 60 * 60 * 1000;
+export const AFK_FRAGMENTS_PER_TICK = 1;
+
+export function afkIdleFragments(
+  lastClaimAt: Date | null,
+  now: Date,
+  playerLevel: number,
+): { fragments: number; waitedMs: number; capped: boolean } {
+  if (!lastClaimAt) {
+    return { fragments: 0, waitedMs: 0, capped: false };
+  }
+  const waitedMs = Math.max(0, now.getTime() - lastClaimAt.getTime());
+  const capped = waitedMs > AFK_CAP_MS;
+  const counted = Math.min(waitedMs, AFK_CAP_MS);
+  const ticks = Math.floor(counted / AFK_TICK_MS);
+  const fragments =
+    ticks * AFK_FRAGMENTS_PER_TICK * Math.max(1, playerLevel);
+  return { fragments, waitedMs, capped };
 }

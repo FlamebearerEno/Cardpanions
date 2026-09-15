@@ -20,6 +20,7 @@ model Player {
   chatFuel         Int         @default(12)
   dust             Int         @default(0)
   claimed          Boolean     @default(false)
+  lastClaimAt      DateTime?
   packPulls        Int         @default(0)
   floorsCleared    Int         @default(0)
   cards            PlayerCard[]

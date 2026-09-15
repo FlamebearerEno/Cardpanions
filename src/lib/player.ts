@@ -2,6 +2,9 @@ import { CARDS, SETS, STARTER_IDS, cardsInSet, remapCardId } from "./cards";
 import { getCompanion } from "./companions";
 import { setBonuses } from "./clash";
 import {
+  AFK_CAP_MS,
+  AFK_TICK_MS,
+  afkIdleFragments,
   bondAuraPower,
   bondAuraPulse,
   FRAGMENTS_PER_TICKET,
@@ -47,6 +50,17 @@ export function toMeDto(player: PlayerRecord) {
     chatFuel: player.chatFuel,
     dust: player.dust,
     claimed: player.claimed,
+    lastClaimAt: player.lastClaimAt?.toISOString() ?? null,
+    afk: {
+      lastClaimAt: player.lastClaimAt?.toISOString() ?? null,
+      capMs: AFK_CAP_MS,
+      tickMs: AFK_TICK_MS,
+      pendingFragments: afkIdleFragments(
+        player.lastClaimAt,
+        new Date(),
+        player.playerLevel,
+      ).fragments,
+    },
     packPulls: player.packPulls,
     floorsCleared: player.floorsCleared,
     sharedPulseMax: pulse.max,
