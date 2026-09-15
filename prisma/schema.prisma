@@ -1,0 +1,60 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Player {
+  id               String      @id @default(cuid())
+  createdAt        DateTime    @default(now())
+  name             String      @default("Rookie")
+  playerLevel      Int         @default(1)
+  companionId      String?
+  companionLevel   Int         @default(1)
+  bond             Int         @default(0)
+  ticketFragments  Int         @default(0)
+  packTickets      Int         @default(0)
+  chatFuel         Int         @default(12)
+  dust             Int         @default(0)
+  claimed          Boolean     @default(false)
+  packPulls        Int         @default(0)
+  floorsCleared    Int         @default(0)
+  cards            PlayerCard[]
+  clashes          ClashRun[]
+  messages         ChatMessage[]
+}
+
+model PlayerCard {
+  id       String @id @default(cuid())
+  playerId String
+  player   Player @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  cardId   String
+  rank     Int    @default(1)
+  count    Int    @default(1)
+
+  @@unique([playerId, cardId])
+}
+
+model ClashRun {
+  id        String   @id @default(cuid())
+  playerId  String
+  player    Player   @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  status    String   @default("active")
+  state     Json
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model ChatMessage {
+  id             String   @id @default(cuid())
+  playerId       String
+  player         Player   @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  role           String
+  text           String
+  bondDelta      Int      @default(0)
+  fragmentDelta  Int      @default(0)
+  createdAt      DateTime @default(now())
+}
