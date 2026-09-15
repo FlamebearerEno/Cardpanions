@@ -55,6 +55,15 @@ async function api<T>(path: string, init?: RequestInit): Promise<T> {
   return data;
 }
 
+function firstPlayable(clash: ClashView): string | null {
+  const take = clash.hand.find(
+    (c) => c.type === "take" && c.energy <= clash.energy && !clash.clashUsed,
+  );
+  if (take) return take.iid;
+  const riff = clash.hand.find((c) => c.type === "riff" && c.energy <= clash.energy);
+  return riff?.iid ?? clash.hand[0]?.iid ?? null;
+}
+
 export function GameApp() {
   const [me, setMe] = useState<MeDto | null>(null);
   const [tab, setTab] = useState<Tab>("home");
@@ -133,7 +142,7 @@ export function GameApp() {
       });
       setMe(data.me);
       setClash(data.clash);
-      setSelected(null);
+      setSelected(firstPlayable(data.clash));
       setTab("clash");
     });
   }
@@ -142,6 +151,7 @@ export function GameApp() {
     const data = await api<{ clash: ClashView | null; me: MeDto }>("/api/clash");
     setMe(data.me);
     setClash(data.clash);
+    if (data.clash) setSelected(firstPlayable(data.clash));
   }
 
   async function act(action: { type: string; iid?: string }) {
@@ -152,7 +162,7 @@ export function GameApp() {
       });
       setMe(data.me);
       setClash(data.clash);
-      setSelected(null);
+      setSelected(firstPlayable(data.clash));
     });
   }
 
@@ -255,8 +265,8 @@ export function GameApp() {
 
       <PulseBar
         label="Shared Pulse"
-        current={clash?.status === "active" ? clash.sharedPulse : me.sharedPulseMax}
-        max={me.sharedPulseMax}
+        current={clash ? clash.sharedPulse : me.sharedPulseMax}
+        max={clash ? clash.sharedPulseMax : me.sharedPulseMax}
         playerShare={me.playerSegment}
         companionShare={me.companionSegment}
       />
@@ -508,6 +518,19 @@ function ClashTab({
           Tower floor 1. Shared Pulse vs Floor Pulse. Clash cut hits the
           lower-Power owner: PowerDiff × 5. Defend is partial. 1 clash/turn.
         </p>
+        {clash?.lastClash ? (
+          <div className="last-clash">
+            <strong>
+              {clash.lastClash.playerCardName} {clash.lastClash.playerPower} vs{" "}
+              {clash.lastClash.floorCardName} {clash.lastClash.floorPower}
+            </strong>
+            <p>
+              cut {clash.lastClash.cut} (×{clash.lastClash.multiplier}) · Shared{" "}
+              {clash.sharedPulse}/{clash.sharedPulseMax} · Floor {clash.floorPulse}/
+              {clash.floorPulseMax}
+            </p>
+          </div>
+        ) : null}
         {clash?.status === "won" ? (
           <p className="win">Cleared. Fragments banked. Chat fuel +2.</p>
         ) : null}
@@ -523,6 +546,9 @@ function ClashTab({
 
   const canClash = !clash.clashUsed && selectedCard?.type === "take";
   const canRiff = selectedCard?.type === "riff";
+  const mustClash =
+    !clash.clashUsed &&
+    clash.hand.some((c) => c.type === "take" && c.energy <= clash.energy);
 
   return (
     <div className="clash">
@@ -559,7 +585,10 @@ function ClashTab({
           {clash.lastClash.note ? <p>{clash.lastClash.note}</p> : null}
         </div>
       ) : (
-        <p className="hint">Pick a Take: Lead (Declare) or React (Hold). Riffs stay open.</p>
+        <p className="hint">
+          Pick a Take, then Lead (Declare) or React (Hold). End turn unlocks after
+          the clash. Leftover energy can Riff.
+        </p>
       )}
       <div className="hand">
         {clash.hand.map((c) => (
@@ -608,7 +637,11 @@ function ClashTab({
         >
           Shelf
         </button>
-        <button type="button" disabled={busy} onClick={() => onAct({ type: "end" })}>
+        <button
+          type="button"
+          disabled={busy || mustClash}
+          onClick={() => onAct({ type: "end" })}
+        >
           End turn
         </button>
       </div>

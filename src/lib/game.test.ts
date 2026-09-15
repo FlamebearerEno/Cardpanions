@@ -298,6 +298,15 @@ describe("turn / hand rules", () => {
       ).toThrow(/Already clashed/);
     }
   });
+
+  it("refuses End turn while a Take is still affordable", () => {
+    const state = createClashState(ctx(), 1, "c4");
+    state.hand = [{ iid: "t1", cardId: "opening-jab" }];
+    state.energy = 3;
+    expect(() => applyAction(state, ctx(), { type: "end" })).toThrow(
+      /Lead or React/,
+    );
+  });
 });
 
 describe("chat rate R", () => {

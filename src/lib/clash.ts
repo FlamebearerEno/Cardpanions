@@ -549,9 +549,16 @@ function playTake(
 function endTurn(state: ClashState, rng: SeededRng): void {
   if (state.status !== "active") return;
   if (!state.clashUsed) {
+    const affordableTake = state.hand.some((c) => {
+      const def = getCard(c.cardId);
+      return def.type === "take" && def.energy <= state.energy;
+    });
+    if (affordableTake) {
+      throw new Error("Lead or React a Take before ending the turn.");
+    }
     state.sharedPulse = Math.max(0, state.sharedPulse - SILENCE_PRESS);
     state.log.push(
-      `You held silence. The Door presses ${SILENCE_PRESS}. Leftover energy is gone.`,
+      `No Take to play. The Door presses ${SILENCE_PRESS}. Leftover energy is gone.`,
     );
     if (state.sharedPulse <= 0) {
       state.status = "lost";
