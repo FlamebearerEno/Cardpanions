@@ -1,0 +1,161 @@
+[
+  {
+    "file": "bundle_00.json",
+    "parts": [
+      "bundle_00.json.part00",
+      "bundle_00.json.part01",
+      "bundle_00.json.part02",
+      "bundle_00.json.part03",
+      "bundle_00.json.part04",
+      "bundle_00.json.part05",
+      "bundle_00.json.part06",
+      "bundle_00.json.part07",
+      "bundle_00.json.part08"
+    ],
+    "size": 663432
+  },
+  {
+    "file": "bundle_01.json",
+    "parts": [
+      "bundle_01.json.part00",
+      "bundle_01.json.part01",
+      "bundle_01.json.part02",
+      "bundle_01.json.part03",
+      "bundle_01.json.part04",
+      "bundle_01.json.part05",
+      "bundle_01.json.part06",
+      "bundle_01.json.part07",
+      "bundle_01.json.part08",
+      "bundle_01.json.part09"
+    ],
+    "size": 749324
+  },
+  {
+    "file": "bundle_02.json",
+    "parts": [
+      "bundle_02.json.part00",
+      "bundle_02.json.part01",
+      "bundle_02.json.part02",
+      "bundle_02.json.part03",
+      "bundle_02.json.part04",
+      "bundle_02.json.part05",
+      "bundle_02.json.part06",
+      "bundle_02.json.part07",
+      "bundle_02.json.part08"
+    ],
+    "size": 652513
+  },
+  {
+    "file": "bundle_03.json",
+    "parts": [
+      "bundle_03.json.part00",
+      "bundle_03.json.part01",
+      "bundle_03.json.part02",
+      "bundle_03.json.part03",
+      "bundle_03.json.part04",
+      "bundle_03.json.part05",
+      "bundle_03.json.part06",
+      "bundle_03.json.part07",
+      "bundle_03.json.part08",
+      "bundle_03.json.part09",
+      "bundle_03.json.part10",
+      "bundle_03.json.part11",
+      "bundle_03.json.part12"
+    ],
+    "size": 1033197
+  },
+  {
+    "file": "bundle_04.json",
+    "parts": [
+      "bundle_04.json.part00",
+      "bundle_04.json.part01",
+      "bundle_04.json.part02",
+      "bundle_04.json.part03",
+      "bundle_04.json.part04",
+      "bundle_04.json.part05",
+      "bundle_04.json.part06",
+      "bundle_04.json.part07",
+      "bundle_04.json.part08",
+      "bundle_04.json.part09",
+      "bundle_04.json.part10",
+      "bundle_04.json.part11",
+      "bundle_04.json.part12",
+      "bundle_04.json.part13",
+      "bundle_04.json.part14"
+    ],
+    "size": 1168411
+  },
+  {
+    "file": "bundle_05.json",
+    "parts": [
+      "bundle_05.json.part00",
+      "bundle_05.json.part01",
+      "bundle_05.json.part02",
+      "bundle_05.json.part03",
+      "bundle_05.json.part04",
+      "bundle_05.json.part05",
+      "bundle_05.json.part06",
+      "bundle_05.json.part07",
+      "bundle_05.json.part08",
+      "bundle_05.json.part09",
+      "bundle_05.json.part10",
+      "bundle_05.json.part11",
+      "bundle_05.json.part12"
+    ],
+    "size": 1023576
+  },
+  {
+    "file": "bundle_06.json",
+    "parts": [
+      "bundle_06.json.part00",
+      "bundle_06.json.part01",
+      "bundle_06.json.part02",
+      "bundle_06.json.part03",
+      "bundle_06.json.part04"
+    ],
+    "size": 336702
+  },
+  {
+    "file": "bundle_07.json",
+    "parts": [
+      "bundle_07.json.part00",
+      "bundle_07.json.part01",
+      "bundle_07.json.part02",
+      "bundle_07.json.part03",
+      "bundle_07.json.part04"
+    ],
+    "size": 396335
+  },
+  {
+    "file": "bundle_08.json",
+    "parts": [
+      "bundle_08.json.part00",
+      "bundle_08.json.part01",
+      "bundle_08.json.part02",
+      "bundle_08.json.part03",
+      "bundle_08.json.part04"
+    ],
+    "size": 390092
+  },
+  {
+    "file": "bundle_09.json",
+    "parts": [
+      "bundle_09.json.part00",
+      "bundle_09.json.part01",
+      "bundle_09.json.part02",
+      "bundle_09.json.part03",
+      "bundle_09.json.part04",
+      "bundle_09.json.part05"
+    ],
+    "size": 456204
+  },
+  {
+    "file": "bundle_10.json",
+    "parts": [
+      "bundle_10.json.part00",
+      "bundle_10.json.part01",
+      "bundle_10.json.part02"
+    ],
+    "size": 174264
+  }
+]
