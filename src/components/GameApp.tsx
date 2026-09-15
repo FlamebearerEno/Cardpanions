@@ -55,8 +55,8 @@ async function api<T>(path: string, init?: RequestInit): Promise<T> {
   return data;
 }
 
-export function GameApp({ initialMe }: { initialMe: MeDto }) {
-  const [me, setMe] = useState<MeDto>(initialMe);
+export function GameApp() {
+  const [me, setMe] = useState<MeDto | null>(null);
   const [tab, setTab] = useState<Tab>("home");
   const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -69,8 +69,22 @@ export function GameApp({ initialMe }: { initialMe: MeDto }) {
   const chatEnd = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    let live = true;
+    api<MeDto>("/api/me")
+      .then((data) => {
+        if (live) setMe(data);
+      })
+      .catch((e: Error) => {
+        if (live) setErr(e.message);
+      });
+    return () => {
+      live = false;
+    };
+  }, []);
+
+  useEffect(() => {
     chatEnd.current?.scrollIntoView({ behavior: "smooth" });
-  }, [me.chat.length]);
+  }, [me?.chat.length]);
 
   const selectedCard = useMemo(
     () => clash?.hand.find((c) => c.iid === selected) ?? null,
@@ -173,6 +187,14 @@ export function GameApp({ initialMe }: { initialMe: MeDto }) {
       });
       setMe(data);
     });
+  }
+
+  if (!me) {
+    return (
+      <div className="phone">
+        <div className="boot">{err ?? "Waking the table…"}</div>
+      </div>
+    );
   }
 
   if (!me.claimed) {

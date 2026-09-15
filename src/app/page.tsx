@@ -1,14 +1,9 @@
 import { GameApp } from "@/components/GameApp";
-import { toMeDto } from "@/lib/player";
-import { getOrCreatePlayer } from "@/lib/session";
 
-export const dynamic = "force-dynamic";
-
-export default async function Home() {
-  const player = await getOrCreatePlayer();
+export default function Home() {
   return (
     <div className="desk">
-      <GameApp initialMe={toMeDto(player)} />
+      <GameApp />
     </div>
   );
 }
