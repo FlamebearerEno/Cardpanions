@@ -1,0 +1,158 @@
+{
+  "version": 1,
+  "style": "warm_rival_v1",
+  "prompt_bible": "PROMPT_BIBLE.md",
+  "export_notes": "EXPORT_NOTES.md",
+  "public_drop": {
+    "cards": "public/art/cards/",
+    "companions": "public/art/companions/",
+    "ui": "public/art/ui/",
+    "floors": "public/art/floors/"
+  },
+  "assets": [
+    {
+      "file": "companions/companion_rival_01.png",
+      "slot": "companion",
+      "id": "rival_01",
+      "status": "ready",
+      "bytes": 233575
+    },
+    {
+      "file": "companions/companion_rival_02.png",
+      "slot": "companion",
+      "id": "rival_02",
+      "status": "ready",
+      "bytes": 263919
+    },
+    {
+      "file": "cards/take_opening_jab.png",
+      "slot": "take",
+      "id": "opening_jab",
+      "status": "ready",
+      "bytes": 260524
+    },
+    {
+      "file": "cards/take_guarded_point.png",
+      "slot": "take",
+      "id": "guarded_point",
+      "status": "ready",
+      "bytes": 301398
+    },
+    {
+      "file": "cards/take_straight_claim.png",
+      "slot": "take",
+      "id": "straight_claim",
+      "status": "ready",
+      "bytes": 224228
+    },
+    {
+      "file": "cards/take_trap_clause.png",
+      "slot": "take",
+      "id": "trap_clause",
+      "status": "ready",
+      "bytes": 265085
+    },
+    {
+      "file": "cards/take_loud_correct.png",
+      "slot": "take",
+      "id": "loud_correct",
+      "status": "ready",
+      "bytes": 343705
+    },
+    {
+      "file": "cards/take_comeback_line.png",
+      "slot": "take",
+      "id": "comeback_line",
+      "status": "ready",
+      "bytes": 431120
+    },
+    {
+      "file": "cards/take_swagger_hook.png",
+      "slot": "take",
+      "id": "swagger_hook",
+      "status": "ready",
+      "bytes": 436135
+    },
+    {
+      "file": "cards/take_exact_count.png",
+      "slot": "take",
+      "id": "exact_count",
+      "status": "ready",
+      "bytes": 440101
+    },
+    {
+      "file": "cards/riff_warm_up.png",
+      "slot": "riff",
+      "id": "warm_up",
+      "status": "ready",
+      "bytes": 359507
+    },
+    {
+      "file": "cards/riff_steady_breath.png",
+      "slot": "riff",
+      "id": "steady_breath",
+      "status": "ready",
+      "bytes": 408108
+    },
+    {
+      "file": "cards/riff_read_ahead.png",
+      "slot": "riff",
+      "id": "read_ahead",
+      "status": "ready",
+      "bytes": 121790
+    },
+    {
+      "file": "cards/riff_amp_next.png",
+      "slot": "riff",
+      "id": "amp_next",
+      "status": "ready",
+      "bytes": 130671,
+      "aliases": [
+        "cards/riff_amp.png"
+      ],
+      "note": "canonical file riff_amp_next.png; riff_amp.png kept as alias copy"
+    },
+    {
+      "file": "cards/riff_deny.png",
+      "slot": "riff",
+      "id": "deny",
+      "status": "ready",
+      "bytes": 137154
+    },
+    {
+      "file": "chrome/ui_shared_pulse.png",
+      "slot": "ui",
+      "id": "shared_pulse",
+      "status": "ready",
+      "bytes": 160038
+    },
+    {
+      "file": "chrome/ui_floor_pulse.png",
+      "slot": "ui",
+      "id": "floor_pulse",
+      "status": "ready",
+      "bytes": 126377
+    },
+    {
+      "file": "chrome/ui_declare.png",
+      "slot": "ui",
+      "id": "declare",
+      "status": "ready",
+      "bytes": 166134
+    },
+    {
+      "file": "chrome/ui_hold.png",
+      "slot": "ui",
+      "id": "hold",
+      "status": "ready",
+      "bytes": 98852
+    },
+    {
+      "file": "floors/floor_01_the_door.png",
+      "slot": "floor",
+      "id": "floor_01_the_door",
+      "status": "ready",
+      "bytes": 243238
+    }
+  ]
+}
